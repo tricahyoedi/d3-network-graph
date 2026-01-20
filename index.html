@@ -3,27 +3,22 @@
 <head>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #fdfdfd; overflow: hidden; }
-        .link { stroke: #bbb; stroke-opacity: 0.15; stroke-width: 1px; transition: all 0.3s ease; }
-        .node circle { stroke: #fff; stroke-width: 2px; cursor: pointer; }
-        
-        /* Local Tooltip Styling */
-        .local-tooltip { pointer-events: none; visibility: hidden; }
-        .local-tooltip rect { fill: rgba(0, 0, 0, 0.85); rx: 8; ry: 8; }
-        .local-tooltip text { fill: #fff; font-size: 11px; }
-        .local-tooltip .title { font-weight: bold; fill: #ffd54f; font-size: 12px; }
-        .local-tooltip .desc { fill: #efefef; }
-
-        .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 12px; pointer-events: none; z-index: 10;}
+        body { margin: 0; font-family: sans-serif; background: #ffffff; overflow: hidden; }
+        .link { stroke: #999; stroke-opacity: 0.2; stroke-width: 1.2px; pointer-events: none; }
+        .node circle { stroke: #fff; stroke-width: 2px; transition: r 0.2s; cursor: pointer; }
+        /* Highlighting the hovered node */
+        .node:hover circle { stroke: #333; stroke-width: 3px; }
+        text { font-size: 12px; fill: #333; font-weight: bold; pointer-events: none; user-select: none; }
+        .legend { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.9); padding: 10px; border: 1px solid #ccc; border-radius: 4px; z-index: 10; }
     </style>
 </head>
 <body>
 
 <div class="legend">
-    <strong>Interactive Study Explorer</strong><br>
-    <span style="color:#2ca02c">●</span> Groups (Top)<br>
-    <span style="color:#ff7f0e">●</span> Tasks (Middle Hairball)<br>
-    <span style="color:#1f77b4">●</span> Studies (Bottom)
+    <div style="color:#d62728">★ Anchor (Fixed)</div>
+    <div style="color:#2ca02c">● Group (Top)</div>
+    <div style="color:#ff7f0e">● Task (Middle)</div>
+    <div style="color:#1f77b4">● Study (Bottom)</div>
 </div>
 
 <svg id="viz"></svg>
@@ -31,109 +26,83 @@
 <script>
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const svg = d3.select("#viz").attr("viewBox", [0, 0, width, height]);
 
-    const colorMap = { "anchor": "#d62728", "study": "#1f77b4", "task": "#ff7f0e", "group": "#2ca02c" };
+    const svg = d3.select("#viz")
+        .attr("width", width)
+        .attr("height", height);
+
+    const colorMap = { 
+        "anchor": "#d62728", 
+        "study": "#1f77b4", 
+        "task": "#ff7f0e", 
+        "group": "#2ca02c" 
+    };
 
     d3.json("data.json").then(data => {
-        // Initialize Forces
+        
+        // PINNING LOGIC
+        data.nodes.forEach(d => {
+            if (d.id === "GROUPING") {
+                d.fx = width / 2;
+                d.fy = height * 0.1;
+            } else if (d.id === "PAPER") {
+                d.fx = width / 2;
+                d.fy = height * 0.9;
+            }
+        });
+
         const simulation = d3.forceSimulation(data.nodes)
-            .force("link", d3.forceLink(data.links).id(d => d.id).distance(50).strength(0.2))
-            .force("charge", d3.forceManyBody().strength(-200))
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(80))
+            .force("charge", d3.forceManyBody().strength(-400))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide().radius(30))
-            .force("y", d3.forceY(d => {
-                if (d.type === "group" || d.id === "GROUPING") return height * 0.15;
-                if (d.type === "task") return height * 0.50;
-                if (d.type === "study") return height * 0.80;
-                return height * 0.92;
-            }).strength(0.8));
+            .force("collision", d3.forceCollide().radius(35))
+            .alphaDecay(0.05); // Faster decay so the graph stops moving sooner
 
-        const link = svg.append("g").selectAll("line")
-            .data(data.links).join("line").attr("class", "link");
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(data.links)
+            .join("line")
+            .attr("class", "link");
 
-        const node = svg.append("g").selectAll("g")
-            .data(data.nodes).join("g").attr("class", "node")
+        const node = svg.append("g")
+            .selectAll("g")
+            .data(data.nodes)
+            .join("g")
+            .attr("class", "node")
             .call(d3.drag()
-                .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-                .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
-                .on("end", (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
 
         node.append("circle")
-            .attr("r", d => d.type === 'anchor' ? 14 : 9)
+            .attr("r", d => d.type === 'anchor' ? 22 : 12)
             .attr("fill", d => colorMap[d.type]);
 
-        // Tooltip Creation (Embedded inside node groups)
-        const localTooltip = node.append("g").attr("class", "local-tooltip");
+        // Tooltip: This is the simplest way to see info on hover without shifting
+        node.append("title")
+            .text(d => `ID: ${d.id}\nType: ${d.type}`);
 
-        localTooltip.each(function(d) {
-            const g = d3.select(this);
-            const text = d.description || "";
-            const words = text.split(/\s+/);
-            const lineLimit = 25; 
-            let lines = [], currentLine = "";
-
-            words.forEach(w => {
-                if ((currentLine + w).length > lineLimit) { lines.push(currentLine); currentLine = w + " "; }
-                else { currentLine += w + " "; }
-            });
-            lines.push(currentLine);
-
-            const bg = g.append("rect");
-            const tNode = g.append("text").attr("x", 12).attr("y", 15);
-            
-            tNode.append("tspan").text(d.id).attr("class", "title").attr("x", 12).attr("dy", "1.1em");
-            if(d.description) {
-                lines.forEach(l => {
-                    tNode.append("tspan").text(l).attr("class", "desc").attr("x", 12).attr("dy", "1.2em");
-                });
-            }
-
-            const bbox = tNode.node().getBBox();
-            bg.attr("width", bbox.width + 24).attr("height", bbox.height + 20).attr("x", 0).attr("y", 0);
-        });
-
-        // HOVER INTERACTION
-        node.on("mouseenter", (event, d) => {
-            const neighbors = new Set([d.id]);
-            data.links.forEach(l => {
-                if (l.source.id === d.id || l.target.id === d.id) {
-                    neighbors.add(l.source.id);
-                    neighbors.add(l.target.id);
-                }
-            });
-
-            // 1. SHIFT LOGIC: Use a powerful radial force to move neighbors away
-            // We reduce the strength of the Y-axis force so the radial force can push them vertically too
-            simulation.force("y").strength(0.1); 
-            simulation.force("burst", d3.forceRadial(220, d.x, d.y).strength(n => neighbors.has(n.id) && n.id !== d.id ? 1.5 : 0));
-            
-            simulation.alpha(1).restart(); // High alpha for fast movement
-
-            // 2. VISUAL LOGIC
-            node.transition().duration(200).style("opacity", n => neighbors.has(n.id) ? 1 : 0.05);
-            link.transition().duration(200).style("stroke-opacity", l => (l.source.id === d.id || l.target.id === d.id) ? 0.9 : 0.02)
-                .style("stroke", "#222").style("stroke-width", l => (l.source.id === d.id || l.target.id === d.id) ? "2px" : "1px");
-
-            node.filter(n => neighbors.has(n.id)).select(".local-tooltip").style("visibility", "visible");
-        })
-        .on("mouseleave", () => {
-            // Restore original forces
-            simulation.force("burst", null);
-            simulation.force("y").strength(0.8);
-            simulation.alpha(0.5).restart();
-
-            // Restore original visuals
-            node.transition().duration(200).style("opacity", 1);
-            link.transition().duration(200).style("stroke-opacity", 0.15).style("stroke", "#bbb").style("stroke-width", "1px");
-            node.selectAll(".local-tooltip").style("visibility", "hidden");
-        });
+        node.append("text")
+            .attr("dx", 18)
+            .attr("dy", 5)
+            .text(d => d.id);
 
         simulation.on("tick", () => {
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
                 .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
             node.attr("transform", d => `translate(${d.x},${d.y})`);
         });
+
+        function dragstarted(event, d) {
+            // Re-heat simulation only when dragging starts
+            if (!event.active) simulation.alphaTarget(0.1).restart();
+            d.fx = d.x; d.fy = d.y;
+        }
+        function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            if (d.type !== 'anchor') { d.fx = null; d.fy = null; }
+        }
     });
 </script>
 </body>
