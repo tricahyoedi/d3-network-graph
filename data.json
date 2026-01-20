@@ -1,18 +1,23 @@
 {
   "nodes": [
-    {"id": "GitHub", "group": 1},
-    {"id": "D3.js", "group": 2},
-    {"id": "HTML", "group": 3},
-    {"id": "JSON", "group": 3},
-    {"id": "SVG", "group": 2},
-    {"id": "User", "group": 1}
+    {"id": "Study 1", "type": "study"}, {"id": "Study 2", "type": "study"}, {"id": "Study 3", "type": "study"},
+    {"id": "T6.1", "type": "task"}, {"id": "T7.1", "type": "task"}, {"id": "T8.2", "type": "task"},
+    {"id": "T9.2", "type": "task"}, {"id": "T10.2", "type": "task"}, {"id": "T11.2", "type": "task"},
+    {"id": "T12.2", "type": "task"}, {"id": "T13.2", "type": "task"}, {"id": "T14.3", "type": "task"},
+    {"id": "T15.3", "type": "task"},
+    {"id": "Group 1", "type": "group"}, {"id": "Group 2", "type": "group"}, 
+    {"id": "Group 3", "type": "group"}, {"id": "Group 4", "type": "group"}
   ],
   "links": [
-    {"source": "User", "target": "GitHub"},
-    {"source": "GitHub", "target": "HTML"},
-    {"source": "GitHub", "target": "JSON"},
-    {"source": "HTML", "target": "D3.js"},
-    {"source": "JSON", "target": "D3.js"},
-    {"source": "D3.js", "target": "SVG"}
+    {"source": "Study 1", "target": "T6.1"}, {"source": "T6.1", "target": "Group 4"},
+    {"source": "Study 1", "target": "T7.1"}, {"source": "T7.1", "target": "Group 4"},
+    {"source": "Study 2", "target": "T8.2"}, {"source": "T8.2", "target": "Group 2"},
+    {"source": "Study 2", "target": "T9.2"}, {"source": "T9.2", "target": "Group 2"},
+    {"source": "Study 2", "target": "T10.2"}, {"source": "T10.2", "target": "Group 2"},
+    {"source": "Study 2", "target": "T11.2"}, {"source": "T11.2", "target": "Group 1"},
+    {"source": "Study 2", "target": "T12.2"}, {"source": "T12.2", "target": "Group 1"},
+    {"source": "Study 2", "target": "T13.2"}, {"source": "T13.2", "target": "Group 1"},
+    {"source": "Study 3", "target": "T14.3"}, {"source": "T14.3", "target": "Group 2"},
+    {"source": "Study 3", "target": "T15.3"}, {"source": "T15.3", "target": "Group 3"}
   ]
 }
