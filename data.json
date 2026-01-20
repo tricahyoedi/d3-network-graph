@@ -1,0 +1,18 @@
+{
+  "nodes": [
+    {"id": "GitHub", "group": 1},
+    {"id": "D3.js", "group": 2},
+    {"id": "HTML", "group": 3},
+    {"id": "JSON", "group": 3},
+    {"id": "SVG", "group": 2},
+    {"id": "User", "group": 1}
+  ],
+  "links": [
+    {"source": "User", "target": "GitHub"},
+    {"source": "GitHub", "target": "HTML"},
+    {"source": "GitHub", "target": "JSON"},
+    {"source": "HTML", "target": "D3.js"},
+    {"source": "JSON", "target": "D3.js"},
+    {"source": "D3.js", "target": "SVG"}
+  ]
+}
