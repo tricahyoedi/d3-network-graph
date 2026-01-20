@@ -4,23 +4,27 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fdfdfd; overflow: hidden; }
-        .link { stroke: #bbb; stroke-opacity: 0.3; stroke-width: 1.5px; transition: stroke-opacity 0.2s, stroke 0.2s; }
-        .node circle { stroke: #fff; stroke-width: 2px; transition: r 0.2s, opacity 0.2s; cursor: pointer; }
+        .link { stroke: #bbb; stroke-opacity: 0.3; stroke-width: 1.5px; transition: all 0.2s; }
+        .node circle { stroke: #fff; stroke-width: 2px; transition: all 0.2s; cursor: pointer; }
         text { font-size: 10px; fill: #666; pointer-events: none; font-weight: 400; transition: opacity 0.2s; }
         
         .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.6; pointer-events: none;}
         .tooltip {
-            position: absolute; padding: 12px; background: rgba(30, 30, 30, 0.9);
+            position: absolute; padding: 12px; background: rgba(30, 30, 30, 0.95);
             color: #fff; border-radius: 6px; font-size: 13px;
-            visibility: hidden; pointer-events: none; max-width: 300px; 
+            visibility: hidden; pointer-events: none; max-width: 350px; 
+            max-height: 400px; overflow-y: auto;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 1000;
+            line-height: 1.4;
         }
+        .tooltip hr { border: 0; border-top: 1px solid #555; margin: 8px 0; }
+        .tooltip b { color: #ffca28; }
     </style>
 </head>
 <body>
 
 <div class="legend">
-    <strong>Network Map (Hover to Highlight)</strong><br>
+    <strong>Network Map</strong><br>
     <span style="color:#2ca02c">●</span> Groups (Top Cluster)<br>
     <span style="color:#ff7f0e">●</span> Tasks (Middle Hairball)<br>
     <span style="color:#1f77b4">●</span> Studies (Bottom Cluster)<br>
@@ -36,45 +40,25 @@
     const svg = d3.select("#viz").attr("width", width).attr("height", height);
     const tooltip = d3.select("#tooltip");
 
-    const colorMap = { 
-        "anchor": "#d62728", 
-        "study": "#1f77b4", 
-        "task": "#ff7f0e", 
-        "group": "#2ca02c" 
-    };
+    const colorMap = { "anchor": "#d62728", "study": "#1f77b4", "task": "#ff7f0e", "group": "#2ca02c" };
 
     d3.json("data.json").then(data => {
-        
-        const groupY = height * 0.15;
-        const taskY = height * 0.50;
-        const studyY = height * 0.80;
-        const paperY = height * 0.92;
-
         const simulation = d3.forceSimulation(data.nodes)
             .force("link", d3.forceLink(data.links).id(d => d.id).distance(40).strength(0.4))
-            .force("charge", d3.forceManyBody().strength(-120))
+            .force("charge", d3.forceManyBody().strength(-150))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide().radius(22))
+            .force("collision", d3.forceCollide().radius(25))
             .force("y", d3.forceY(d => {
-                if (d.type === "group" || d.id === "GROUPING") return groupY;
-                if (d.type === "task") return taskY;
-                if (d.type === "study") return studyY;
-                if (d.id === "PAPER") return paperY;
+                if (d.type === "group" || d.id === "GROUPING") return height * 0.15;
+                if (d.type === "task") return height * 0.50;
+                if (d.type === "study") return height * 0.82;
+                if (d.id === "PAPER") return height * 0.94;
                 return height / 2;
-            }).strength(0.7))
-            .force("x", d3.forceX(width / 2).strength(0.1));
+            }).strength(0.8));
 
-        const link = svg.append("g")
-            .selectAll("line")
-            .data(data.links)
-            .join("line")
-            .attr("class", "link");
+        const link = svg.append("g").selectAll("line").data(data.links).join("line").attr("class", "link");
 
-        const node = svg.append("g")
-            .selectAll("g")
-            .data(data.nodes)
-            .join("g")
-            .attr("class", "node")
+        const node = svg.append("g").selectAll("g").data(data.nodes).join("g").attr("class", "node")
             .call(d3.drag()
                 .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
                 .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
@@ -84,40 +68,45 @@
             .attr("r", d => d.type === 'anchor' ? 15 : 8)
             .attr("fill", d => colorMap[d.type])
             .on("mouseover", (event, d) => {
-                // 1. Tooltip logic
-                const content = d.description ? `<strong>${d.id}</strong><br/>${d.description}` : `<strong>${d.id}</strong>`;
-                tooltip.style("visibility", "visible").html(content);
+                let connectedTasks = [];
+                const neighbors = new Set([d.id]);
 
-                // 2. Highlighting logic
-                const connectedNodeIds = new Set();
-                connectedNodeIds.add(d.id);
-
-                // Find all connected links and collect neighboring node IDs
-                link.style("stroke-opacity", l => {
+                // Find connections and collect task descriptions
+                data.links.forEach(l => {
                     if (l.source.id === d.id || l.target.id === d.id) {
-                        connectedNodeIds.add(l.source.id);
-                        connectedNodeIds.add(l.target.id);
-                        return 1; // Brighten connected links
+                        const targetNode = l.source.id === d.id ? l.target : l.source;
+                        neighbors.add(targetNode.id);
+                        if (targetNode.type === "task") {
+                            connectedTasks.push(`<b>${targetNode.id}:</b> ${targetNode.description}`);
+                        }
                     }
-                    return 0.05; // Dim others
-                }).style("stroke", l => (l.source.id === d.id || l.target.id === d.id) ? "#444" : "#bbb");
+                });
 
-                // Dim nodes and labels that aren't neighbors
-                node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.1);
+                // Build Tooltip Content
+                let tooltipHtml = `<strong>${d.id}</strong>`;
+                if (d.description) tooltipHtml += `<br/>${d.description}`;
+                
+                if (connectedTasks.length > 0 && d.type !== "task") {
+                    tooltipHtml += `<hr/><strong>Connected Tasks:</strong><br/>${connectedTasks.join("<br/><br/>")}`;
+                }
+
+                tooltip.style("visibility", "visible").html(tooltipHtml);
+
+                // Highlight Logic
+                link.style("stroke-opacity", l => (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.05)
+                    .style("stroke", l => (l.source.id === d.id || l.target.id === d.id) ? "#333" : "#bbb");
+                node.style("opacity", n => neighbors.has(n.id) ? 1 : 0.1);
             })
-            .on("mousemove", (event) => {
-                tooltip.style("top", (event.pageY - 15) + "px").style("left", (event.pageX + 20) + "px");
+            .on("mousemove", (e) => {
+                tooltip.style("top", (e.pageY + 15) + "px").style("left", (e.pageX + 15) + "px");
             })
             .on("mouseout", () => {
                 tooltip.style("visibility", "hidden");
-                // Reset all styles
                 link.style("stroke-opacity", 0.3).style("stroke", "#bbb");
                 node.style("opacity", 1);
             });
 
-        node.append("text")
-            .attr("dx", 12).attr("dy", 4)
-            .text(d => d.type !== 'task' ? d.id : "");
+        node.append("text").attr("dx", 12).attr("dy", 4).text(d => d.type !== 'task' ? d.id : "");
 
         simulation.on("tick", () => {
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
