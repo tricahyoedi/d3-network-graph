@@ -3,25 +3,28 @@
 <head>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #ffffff; overflow: hidden; }
-        .link { stroke: #999; stroke-opacity: 0.15; stroke-width: 1px; }
-        .node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
-        text { font-size: 11px; fill: #444; pointer-events: none; font-weight: bold; }
-        .legend { position: absolute; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid #ddd; font-size: 12px; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fdfdfd; overflow: hidden; }
+        .link { stroke: #bbb; stroke-opacity: 0.3; stroke-width: 1px; }
+        .node circle { stroke: #fff; stroke-width: 2px; transition: r 0.2s; }
+        .node:hover circle { stroke: #333; r: 12px; }
+        text { font-size: 10px; fill: #666; pointer-events: none; font-weight: 400; }
+        .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.6; }
         .tooltip {
-            position: absolute; padding: 10px; background: rgba(0,0,0,0.85);
-            color: white; border-radius: 5px; font-size: 12px;
-            visibility: hidden; pointer-events: none; max-width: 280px; z-index: 100;
+            position: absolute; padding: 12px; background: rgba(30, 30, 30, 0.95);
+            color: #fff; border-radius: 6px; font-size: 13px;
+            visibility: hidden; pointer-events: none; max-width: 300px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 1000;
         }
     </style>
 </head>
 <body>
 
 <div class="legend">
-    <div style="color:#2ca02c">● Group 1-5 (Top)</div>
-    <div style="color:#ff7f0e">● Tasks (Middle)</div>
-    <div style="color:#1f77b4">● Study 1-16 (Bottom-Mid)</div>
-    <div style="color:#d62728">★ PAPER (Bottom)</div>
+    <strong>Network Map</strong><br>
+    <span style="color:#2ca02c">●</span> Groups (Top Cluster)<br>
+    <span style="color:#ff7f0e">●</span> Tasks (Middle Hairball)<br>
+    <span style="color:#1f77b4">●</span> Studies (Bottom Cluster)<br>
+    <span style="color:#d62728">★</span> Root (Paper)
 </div>
 
 <div id="tooltip" class="tooltip"></div>
@@ -42,54 +45,62 @@
 
     d3.json("data.json").then(data => {
         
-        // STRICT LAYERING COORDINATES
-        data.nodes.forEach(d => {
-            if (d.id === "GROUPING") {
-                d.fx = width / 2; d.fy = height * 0.05;
-            } else if (d.type === "group") {
-                d.fy = height * 0.20; // Groups at Top
-            } else if (d.type === "task") {
-                d.fy = height * 0.50; // Tasks in Middle
-            } else if (d.type === "study") {
-                d.fy = height * 0.80; // Studies between Task and Paper
-            } else if (d.id === "PAPER") {
-                d.fx = width / 2; d.fy = height * 0.95; // Paper at Bottom
-            }
-        });
+        // Define Y-positions for the centers of the "hairballs"
+        const groupY = height * 0.15;
+        const taskY = height * 0.50;
+        const studyY = height * 0.80;
+        const paperY = height * 0.92;
 
         const simulation = d3.forceSimulation(data.nodes)
-            .force("link", d3.forceLink(data.links).id(d => d.id).distance(40))
-            .force("charge", d3.forceManyBody().strength(-200))
-            .force("x", d3.forceX(width / 2).strength(0.1))
-            .force("collision", d3.forceCollide().radius(25));
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(50).strength(0.5))
+            .force("charge", d3.forceManyBody().strength(-150))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(25))
+            // This pulls nodes to their respective vertical zones without fixing them to a line
+            .force("y", d3.forceY(d => {
+                if (d.type === "group" || d.id === "GROUPING") return groupY;
+                if (d.type === "task") return taskY;
+                if (d.type === "study") return studyY;
+                if (d.id === "PAPER") return paperY;
+                return height / 2;
+            }).strength(0.8))
+            .force("x", d3.forceX(width / 2).strength(0.1));
 
+        // Draw Links
         const link = svg.append("g")
-            .selectAll("line").data(data.links).join("line").attr("class", "link");
+            .selectAll("line")
+            .data(data.links)
+            .join("line")
+            .attr("class", "link");
 
+        // Draw Nodes
         const node = svg.append("g")
-            .selectAll("g").data(data.nodes).join("g")
+            .selectAll("g")
+            .data(data.nodes)
+            .join("g")
+            .attr("class", "node")
             .call(d3.drag()
                 .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
                 .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
-                .on("end", (e, d) => { if (!e.active) simulation.alphaTarget(0); if(d.type !== 'anchor') d.fx = null; }));
+                .on("end", (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
 
         node.append("circle")
-            .attr("r", d => d.type === 'anchor' ? 18 : 10)
+            .attr("r", d => d.type === 'anchor' ? 15 : 8)
             .attr("fill", d => colorMap[d.type])
             .on("mouseover", (event, d) => {
-                if (d.description) {
-                    tooltip.style("visibility", "visible")
-                           .html(`<strong>${d.id}</strong><br/>${d.description}`);
-                }
+                // Tooltip trigger for BOTH tasks and groups
+                const content = d.description ? `<strong>${d.id}</strong><br/>${d.description}` : `<strong>${d.id}</strong>`;
+                tooltip.style("visibility", "visible").html(content);
             })
             .on("mousemove", (event) => {
-                tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 15) + "px");
+                tooltip.style("top", (event.pageY - 15) + "px").style("left", (event.pageX + 20) + "px");
             })
             .on("mouseout", () => tooltip.style("visibility", "hidden"));
 
+        // Labels for Groups, Studies and Paper (excluding individual Task IDs to reduce clutter)
         node.append("text")
-            .attr("dx", 14).attr("dy", 4)
-            .text(d => d.type !== 'task' ? d.id : ""); // Labels for Groups and Studies
+            .attr("dx", 12).attr("dy", 4)
+            .text(d => d.type !== 'task' ? d.id : "");
 
         simulation.on("tick", () => {
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
