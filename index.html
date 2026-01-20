@@ -3,21 +3,13 @@
 <head>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; font-family: sans-serif; background: #ffffff; overflow: hidden; }
-        .link { stroke: #999; stroke-opacity: 0.2; stroke-width: 1px; }
+        body { margin: 0; font-family: sans-serif; background: #fff; overflow: hidden; }
+        .link { stroke: #999; stroke-opacity: 0.2; stroke-width: 1px; fill: none; }
         .node circle { stroke: #fff; stroke-width: 2px; }
-        text { font-size: 12px; fill: #222; font-weight: bold; pointer-events: none; }
-        .legend { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.9); padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        text { font-size: 11px; fill: #444; font-weight: bold; pointer-events: none; }
     </style>
 </head>
 <body>
-
-<div class="legend">
-    <div style="color:#d62728">★ Anchors (Fixed)</div>
-    <div style="color:#1f77b4">● Study (Links to Paper)</div>
-    <div style="color:#ff7f0e">● Task (Links to Activity)</div>
-    <div style="color:#2ca02c">● Group (Links to Grouping)</div>
-</div>
 
 <svg id="viz"></svg>
 
@@ -25,38 +17,40 @@
     const width = window.innerWidth;
     const height = window.innerHeight;
 
+    // Define the Y-tiers
+    const tierGrouping = height * 0.1;  // Top
+    const tierGroups   = height * 0.25; // Below Grouping
+    const tierActivity = height * 0.5;  // Center
+    const tierStudies  = height * 0.75; // Above Paper
+    const tierPaper    = height * 0.9;  // Bottom
+
     const svg = d3.select("#viz")
         .attr("width", width)
         .attr("height", height);
 
-    const colorMap = { 
-        "anchor": "#d62728", 
-        "study": "#1f77b4", 
-        "task": "#ff7f0e", 
-        "group": "#2ca02c" 
-    };
+    const colorMap = { "anchor": "#d62728", "study": "#1f77b4", "task": "#ff7f0e", "group": "#2ca02c" };
 
     d3.json("data.json").then(data => {
         
-        // PINNING LOGIC: Assign fixed coordinates to Anchor nodes
+        // Pin the Anchors
         data.nodes.forEach(d => {
-            if (d.id === "PAPER") {
-                d.fx = width * 0.2; // Top Left
-                d.fy = height * 0.2;
-            } else if (d.id === "ACTIVITY") {
-                d.fx = width * 0.8; // Top Right
-                d.fy = height * 0.5;
-            } else if (d.id === "GROUPING") {
-                d.fx = width * 0.2; // Bottom Left
-                d.fy = height * 0.8;
-            }
+            if (d.id === "GROUPING") { d.fx = width / 2; d.fy = tierGrouping; }
+            if (d.id === "ACTIVITY") { d.fx = width / 2; d.fy = tierActivity; }
+            if (d.id === "PAPER")    { d.fx = width / 2; d.fy = tierPaper; }
         });
 
         const simulation = d3.forceSimulation(data.nodes)
-            .force("link", d3.forceLink(data.links).id(d => d.id).distance(60))
-            .force("charge", d3.forceManyBody().strength(-400))
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(50))
+            .force("charge", d3.forceManyBody().strength(-300))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("collision", d3.forceCollide().radius(25));
+            // This is the logic for horizontal placement in tiers:
+            .force("y", d3.forceY(d => {
+                if (d.type === "group") return tierGroups;
+                if (d.type === "task") return tierActivity;
+                if (d.type === "study") return tierStudies;
+                return d.y;
+            }).strength(2)) 
+            .force("collision", d3.forceCollide().radius(20));
 
         const link = svg.append("g")
             .selectAll("line")
@@ -74,33 +68,15 @@
                 .on("end", dragended));
 
         node.append("circle")
-            .attr("r", d => d.type === 'anchor' ? 20 : 10)
+            .attr("r", d => d.type === 'anchor' ? 15 : 8)
             .attr("fill", d => colorMap[d.type]);
 
         node.append("text")
-            .attr("dx", 15)
-            .attr("dy", 5)
+            .attr("dx", 12)
+            .attr("dy", 4)
             .text(d => d.id);
 
         simulation.on("tick", () => {
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
                 .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-            node.attr("transform", d => `translate(${d.x},${d.y})`);
-        });
-
-        function dragstarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x; d.fy = d.y;
-        }
-        function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
-        function dragended(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            // Re-pin if it's an anchor, otherwise let it go
-            if (d.type !== 'anchor') {
-                d.fx = null; d.fy = null;
-            }
-        }
-    });
-</script>
-</body>
-</html>
+            node.attr("transform", d => `translate(${d.x},${d.
