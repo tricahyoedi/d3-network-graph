@@ -2,7 +2,6 @@
   "nodes": [
     {"id": "PAPER", "type": "anchor"},
     {"id": "GROUPING", "type": "anchor"},
-    {"id": "ACTIVITY", "type": "anchor"},
     
     {"id": "Study 1", "type": "study"}, {"id": "Study 2", "type": "study"}, {"id": "Study 3", "type": "study"},
     
@@ -19,12 +18,6 @@
     
     {"source": "Group 1", "target": "GROUPING"}, {"source": "Group 2", "target": "GROUPING"}, 
     {"source": "Group 3", "target": "GROUPING"}, {"source": "Group 4", "target": "GROUPING"},
-
-    {"source": "T6.1", "target": "ACTIVITY"}, {"source": "T7.1", "target": "ACTIVITY"},
-    {"source": "T8.2", "target": "ACTIVITY"}, {"source": "T9.2", "target": "ACTIVITY"},
-    {"source": "T10.2", "target": "ACTIVITY"}, {"source": "T11.2", "target": "ACTIVITY"},
-    {"source": "T12.2", "target": "ACTIVITY"}, {"source": "T13.2", "target": "ACTIVITY"},
-    {"source": "T14.3", "target": "ACTIVITY"}, {"source": "T15.3", "target": "ACTIVITY"},
 
     {"source": "Study 1", "target": "T6.1"}, {"source": "T6.1", "target": "Group 4"},
     {"source": "Study 1", "target": "T7.1"}, {"source": "T7.1", "target": "Group 4"},
