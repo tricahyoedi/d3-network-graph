@@ -3,23 +3,34 @@
 <head>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fdfdfd; overflow: hidden; }
-        .link { stroke: #cbd5e0; stroke-opacity: 0.4; stroke-width: 1.5px; fill: none; pointer-events: none; }
-        .node circle { stroke: #fff; stroke-width: 2px; cursor: pointer; }
-        /* Smooth transition for hover */
-        .node circle { transition: r 0.3s ease, fill 0.3s ease; }
-        .node:hover circle { r: 15; stroke: #4a5568; }
-        text { font-size: 11px; fill: #2d3748; pointer-events: none; user-select: none; }
-        .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #fdfdfd; overflow: hidden; }
+        .link { stroke: #cbd5e0; stroke-opacity: 0.2; stroke-width: 1.5px; transition: stroke-opacity 0.3s, stroke 0.3s; }
+        .link.highlight { stroke: #2d3748; stroke-opacity: 1; stroke-width: 2.5px; }
+        
+        .node circle { stroke: #fff; stroke-width: 2px; cursor: pointer; transition: opacity 0.3s, transform 0.3s; }
+        .node.dimmed { opacity: 0.15; }
+        .node.highlight circle { stroke: #000; stroke-width: 3px; transform: scale(1.2); }
+        
+        text { font-size: 11px; fill: #2d3748; pointer-events: none; user-select: none; transition: opacity 0.3s; }
+        .node.dimmed text { opacity: 0.2; }
+
+        .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        /* Simple Custom Tooltip */
+        #tooltip {
+            position: absolute; display: none; background: #333; color: #fff;
+            padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; z-index: 100;
+        }
     </style>
 </head>
 <body>
 
+<div id="tooltip"></div>
 <div class="legend">
     <div style="color:#e53e3e; font-weight:bold;">★ Anchors</div>
     <div style="color:#38a169">● Groups (Top)</div>
     <div style="color:#dd6b20">● Tasks (Center)</div>
     <div style="color:#3182ce">● Studies (Bottom)</div>
+    <div style="font-size: 10px; margin-top:5px; color:#666;">Click node to highlight connections<br>Click background to reset</div>
 </div>
 
 <svg id="viz"></svg>
@@ -28,22 +39,15 @@
     const width = window.innerWidth;
     const height = window.innerHeight;
     const svg = d3.select("#viz").attr("width", width).attr("height", height);
+    const tooltip = d3.select("#tooltip");
 
-    const colorMap = { 
-        "anchor": "#e53e3e", 
-        "group": "#38a169", 
-        "task": "#dd6b20", 
-        "study": "#3182ce" 
-    };
+    const colorMap = { "anchor": "#e53e3e", "group": "#38a169", "task": "#dd6b20", "study": "#3182ce" };
 
     d3.json("data.json").then(data => {
-        
-        // 1. Setup Simulation with Stratified Forces
         const simulation = d3.forceSimulation(data.nodes)
             .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
             .force("charge", d3.forceManyBody().strength(-600))
             .force("center", d3.forceCenter(width / 2, height / 2))
-            // Force nodes into horizontal bands based on type
             .force("y", d3.forceY(d => {
                 if (d.id === "GROUPING") return height * 0.1;
                 if (d.type === "group") return height * 0.25;
@@ -51,23 +55,25 @@
                 if (d.type === "study") return height * 0.75;
                 if (d.id === "PAPER") return height * 0.9;
                 return height / 2;
-            }).strength(1.5)) 
-            // Strong collision prevents overlapping
+            }).strength(1.5))
             .force("collision", d3.forceCollide().radius(45));
 
-        // 2. Draw Links (Behind nodes)
         const link = svg.append("g")
             .selectAll("line")
             .data(data.links)
             .join("line")
             .attr("class", "link");
 
-        // 3. Draw Nodes
         const node = svg.append("g")
             .selectAll("g")
             .data(data.nodes)
             .join("g")
             .attr("class", "node")
+            .on("click", (event, d) => {
+                event.stopPropagation();
+                handleHighlight(d);
+                showTooltip(event, d);
+            })
             .call(d3.drag()
                 .on("start", dragstarted)
                 .on("drag", dragged)
@@ -75,43 +81,61 @@
 
         node.append("circle")
             .attr("r", d => d.type === 'anchor' ? 20 : 12)
-            .attr("fill", d => colorMap[d.type] || "#718096");
+            .attr("fill", d => colorMap[d.type]);
 
         node.append("text")
             .attr("text-anchor", "middle")
             .attr("dy", d => d.type === 'anchor' ? 35 : 25)
             .text(d => d.id);
 
-        // Native tooltip
-        node.append("title").text(d => `Node: ${d.id}\nCategory: ${d.type}`);
+        // Reset highlight when clicking background
+        svg.on("click", () => {
+            node.classed("dimmed", false).classed("highlight", false);
+            link.classed("highlight", false);
+            tooltip.style("display", "none");
+        });
 
-        // 4. Animation Loop
-        simulation.on("tick", () => {
-            // Keep nodes within bounds
-            data.nodes.forEach(d => {
-                d.x = Math.max(50, Math.min(width - 50, d.x));
-                d.y = Math.max(50, Math.min(height - 50, d.y));
+        function handleHighlight(selectedNode) {
+            // Find connected nodes
+            const connectedNodeIds = new Set([selectedNode.id]);
+            data.links.forEach(l => {
+                if (l.source.id === selectedNode.id) connectedNodeIds.add(l.target.id);
+                if (l.target.id === selectedNode.id) connectedNodeIds.add(l.source.id);
             });
 
+            // Update Node appearance
+            node.classed("highlight", d => d.id === selectedNode.id);
+            node.classed("dimmed", d => !connectedNodeIds.has(d.id));
+
+            // Update Link appearance
+            link.classed("highlight", l => 
+                l.source.id === selectedNode.id || l.target.id === selectedNode.id
+            );
+        }
+
+        function showTooltip(event, d) {
+            tooltip
+                .style("display", "block")
+                .html(`<strong>${d.id}</strong><br>Type: ${d.type}`)
+                .style("left", (event.pageX + 15) + "px")
+                .style("top", (event.pageY - 15) + "px");
+        }
+
+        simulation.on("tick", () => {
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
                 .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
             node.attr("transform", d => `translate(${d.x},${d.y})`);
         });
 
+        // Drag functions
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.2).restart();
             d.fx = d.x; d.fy = d.y;
         }
-        function dragged(event, d) {
-            d.fx = event.x; d.fy = event.y;
-        }
+        function dragged(event, d) { d.fx = event.x; d.fy = event.y; }
         function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
-            // Non-anchors are free to move again after drag
-            if (d.type !== 'anchor') {
-                d.fx = null;
-                d.fy = null;
-            }
+            if (d.type !== 'anchor') { d.fx = null; d.fy = null; }
         }
     });
 </script>
