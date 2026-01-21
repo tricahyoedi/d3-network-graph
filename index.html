@@ -6,22 +6,17 @@
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #fdfdfd; overflow: hidden; }
         .link { stroke: #cbd5e0; stroke-opacity: 0.2; stroke-width: 1.5px; transition: all 0.3s; }
         .link.highlight { stroke: #2d3748; stroke-opacity: 1; stroke-width: 2.5px; }
-        
-        .node circle { stroke: #fff; stroke-width: 2px; cursor: pointer; transition: opacity 0.3s; }
+        .node circle { stroke: #fff; stroke-width: 2px; cursor: pointer; }
         .node.dimmed { opacity: 0.15; }
         .node.highlight circle { stroke: #000; stroke-width: 3px; }
-        
         text { font-size: 11px; fill: #2d3748; pointer-events: none; user-select: none; }
-
-        /* Multi-tooltip Styling */
         .custom-tooltip {
             position: absolute; background: rgba(51, 51, 51, 0.95); color: #fff;
             padding: 10px; border-radius: 6px; font-size: 13px; max-width: 200px;
             pointer-events: none; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            line-height: 1.4; transform: translate(-50%, -120%); /* Center above node */
+            line-height: 1.4; transform: translate(-50%, -120%);
         }
         .custom-tooltip strong { color: #fbd38d; display: block; margin-bottom: 4px; border-bottom: 1px solid #555; }
-
         .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; }
     </style>
 </head>
@@ -40,25 +35,26 @@
 <script>
     const width = window.innerWidth;
     const height = window.innerHeight;
+    const padding = 50; // Buffer to keep nodes away from the very edge
+    
     const svg = d3.select("#viz").attr("width", width).attr("height", height);
     const tooltipContainer = d3.select("#tooltip-container");
-
     const colorMap = { "anchor": "#e53e3e", "group": "#38a169", "task": "#dd6b20", "study": "#3182ce" };
 
     d3.json("data.json").then(data => {
         const simulation = d3.forceSimulation(data.nodes)
-            .force("link", d3.forceLink(data.links).id(d => d.id).distance(100))
-            .force("charge", d3.forceManyBody().strength(-600))
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(80))
+            .force("charge", d3.forceManyBody().strength(-400))
             .force("center", d3.forceCenter(width / 2, height / 2))
             .force("y", d3.forceY(d => {
-                if (d.id === "GROUPING") return height * 0.1;
-                if (d.type === "group") return height * 0.25;
+                if (d.id === "GROUPING") return height * 0.15;
+                if (d.type === "group") return height * 0.3;
                 if (d.type === "task") return height * 0.5;
-                if (d.type === "study") return height * 0.75;
-                if (d.id === "PAPER") return height * 0.9;
+                if (d.type === "study") return height * 0.7;
+                if (d.id === "PAPER") return height * 0.85;
                 return height / 2;
-            }).strength(1.5))
-            .force("collision", d3.forceCollide().radius(45));
+            }).strength(1.2))
+            .force("collision", d3.forceCollide().radius(40));
 
         const link = svg.append("g")
             .selectAll("line")
@@ -82,12 +78,12 @@
                 .on("end", dragended));
 
         node.append("circle")
-            .attr("r", d => d.type === 'anchor' ? 20 : 12)
+            .attr("r", d => d.type === 'anchor' ? 18 : 11)
             .attr("fill", d => colorMap[d.type]);
 
         node.append("text")
             .attr("text-anchor", "middle")
-            .attr("dy", d => d.type === 'anchor' ? 35 : 25)
+            .attr("dy", d => d.type === 'anchor' ? 32 : 22)
             .text(d => d.id);
 
         svg.on("click", () => {
@@ -101,54 +97,52 @@
         }
 
         function handleHighlightAndTooltips(selectedNode) {
-            const connectedNodes = [];
-            connectedNodes.push(selectedNode);
-
-            // Find all nodes directly linked to selection
+            const connectedNodes = [selectedNode];
             data.links.forEach(l => {
                 if (l.source.id === selectedNode.id) connectedNodes.push(l.target);
                 if (l.target.id === selectedNode.id) connectedNodes.push(l.source);
             });
 
             const connectedIds = new Set(connectedNodes.map(n => n.id));
-
-            // Visual updates
             node.classed("highlight", d => d.id === selectedNode.id);
             node.classed("dimmed", d => !connectedIds.has(d.id));
             link.classed("highlight", l => l.source.id === selectedNode.id || l.target.id === selectedNode.id);
 
-            // Create Tooltips for the selected node AND any connected Group nodes
             connectedNodes.forEach(n => {
-                if (n.id === selectedNode.id || n.type === "group") {
-                    createTooltip(n);
-                }
+                if (n.id === selectedNode.id || n.type === "group") createTooltip(n);
             });
         }
 
         function createTooltip(d) {
             tooltipContainer.append("div")
                 .attr("class", "custom-tooltip")
+                .attr("id", "tip-" + d.index) // use index to track
                 .style("left", d.x + "px")
                 .style("top", d.y + "px")
                 .html(`<strong>${d.id}</strong>${d.description || ""}`);
         }
 
         simulation.on("tick", () => {
+            // BOUNDING BOX LOGIC
+            data.nodes.forEach(d => {
+                d.x = Math.max(padding, Math.min(width - padding, d.x));
+                d.y = Math.max(padding, Math.min(height - padding, d.y));
+            });
+
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
                 .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+            
             node.attr("transform", d => `translate(${d.x},${d.y})`);
             
-            // Update tooltip positions while nodes are moving/dragging
+            // Sync tooltip positions to constrained node positions
             tooltipContainer.selectAll(".custom-tooltip")
-                .style("left", (d, i, nodes) => {
-                    const id = d3.select(nodes[i]).select("strong").text();
-                    const n = data.nodes.find(node => node.id === id);
-                    return n.x + "px";
-                })
-                .style("top", (d, i, nodes) => {
-                    const id = d3.select(nodes[i]).select("strong").text();
-                    const n = data.nodes.find(node => node.id === id);
-                    return n.y + "px";
+                .each(function() {
+                    const tip = d3.select(this);
+                    const name = tip.select("strong").text();
+                    const d = data.nodes.find(n => n.id === name);
+                    if(d) {
+                        tip.style("left", d.x + "px").style("top", d.y + "px");
+                    }
                 });
         });
 
