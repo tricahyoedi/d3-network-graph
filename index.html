@@ -15,11 +15,14 @@
         .node.dimmed text { opacity: 0.2; }
 
         .legend { position: absolute; top: 20px; left: 20px; background: white; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        /* Simple Custom Tooltip */
+        
         #tooltip {
-            position: absolute; display: none; background: #333; color: #fff;
-            padding: 8px; border-radius: 4px; font-size: 12px; pointer-events: none; z-index: 100;
+            position: absolute; display: none; background: rgba(51, 51, 51, 0.95); color: #fff;
+            padding: 10px; border-radius: 6px; font-size: 13px; max-width: 250px;
+            pointer-events: none; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            line-height: 1.4;
         }
+        #tooltip strong { color: #fbd38d; display: block; margin-bottom: 4px; border-bottom: 1px solid #555; padding-bottom: 2px; }
     </style>
 </head>
 <body>
@@ -30,7 +33,6 @@
     <div style="color:#38a169">● Groups (Top)</div>
     <div style="color:#dd6b20">● Tasks (Center)</div>
     <div style="color:#3182ce">● Studies (Bottom)</div>
-    <div style="font-size: 10px; margin-top:5px; color:#666;">Click node to highlight connections<br>Click background to reset</div>
 </div>
 
 <svg id="viz"></svg>
@@ -88,7 +90,6 @@
             .attr("dy", d => d.type === 'anchor' ? 35 : 25)
             .text(d => d.id);
 
-        // Reset highlight when clicking background
         svg.on("click", () => {
             node.classed("dimmed", false).classed("highlight", false);
             link.classed("highlight", false);
@@ -96,29 +97,24 @@
         });
 
         function handleHighlight(selectedNode) {
-            // Find connected nodes
             const connectedNodeIds = new Set([selectedNode.id]);
             data.links.forEach(l => {
                 if (l.source.id === selectedNode.id) connectedNodeIds.add(l.target.id);
                 if (l.target.id === selectedNode.id) connectedNodeIds.add(l.source.id);
             });
 
-            // Update Node appearance
             node.classed("highlight", d => d.id === selectedNode.id);
             node.classed("dimmed", d => !connectedNodeIds.has(d.id));
-
-            // Update Link appearance
-            link.classed("highlight", l => 
-                l.source.id === selectedNode.id || l.target.id === selectedNode.id
-            );
+            link.classed("highlight", l => l.source.id === selectedNode.id || l.target.id === selectedNode.id);
         }
 
+        // TOOLTIP REFINEMENT: Only ID and Description
         function showTooltip(event, d) {
             tooltip
                 .style("display", "block")
-                .html(`<strong>${d.id}</strong><br>Type: ${d.type}`)
-                .style("left", (event.pageX + 15) + "px")
-                .style("top", (event.pageY - 15) + "px");
+                .html(`<strong>${d.id}</strong>${d.description || "No description available."}`)
+                .style("left", (event.pageX + 20) + "px")
+                .style("top", (event.pageY - 20) + "px");
         }
 
         simulation.on("tick", () => {
@@ -127,7 +123,6 @@
             node.attr("transform", d => `translate(${d.x},${d.y})`);
         });
 
-        // Drag functions
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.2).restart();
             d.fx = d.x; d.fy = d.y;
