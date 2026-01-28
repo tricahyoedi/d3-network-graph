@@ -2,96 +2,123 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Enhanced Task-Category Graph</title>
+    <title>Dynamic Task Analysis Framework</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #fdfdfd; }
-        svg { width: 100vw; height: 100vh; }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; margin: 0; background: #fafafa; overflow: hidden; }
+        svg { width: 100vw; height: 100vh; display: block; }
         
-        /* Link Styling */
-        .links line { 
-            stroke: #666; 
-            transition: stroke 0.2s, stroke-opacity 0.2s;
-        }
-        .links line:hover { stroke: #000; stroke-opacity: 1 !important; }
+        /* Links */
+        .links line { stroke: #999; stroke-opacity: 0.2; pointer-events: none; }
+        .links line.highlight { stroke-opacity: 0.8; stroke: #444; }
 
-        /* Tooltip Styling */
-        .tooltip {
-            position: absolute;
-            padding: 8px;
-            background: rgba(0, 0, 0, 0.8);
-            color: #fff;
-            border-radius: 4px;
-            font-size: 12px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
+        /* Nodes */
+        circle { stroke: #fff; stroke-width: 2px; transition: r 0.3s; cursor: pointer; }
+        circle:hover { stroke: #333; }
 
-        text { font-size: 11px; pointer-events: none; fill: #333; }
-        circle { stroke: #fff; stroke-width: 2px; }
+        /* Labels */
+        text { font-size: 11px; font-weight: 500; fill: #444; pointer-events: none; text-shadow: 0 1px 2px white; }
+        .cat-label { font-size: 13px; font-weight: bold; fill: #1a1a1a; }
+
+        /* Legend & Tooltip */
+        .ui-overlay { position: absolute; top: 20px; left: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 1px solid #eee; }
+        .legend-item { display: flex; align-items: center; margin-top: 5px; font-size: 12px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        
+        .tooltip { position: absolute; padding: 6px 10px; background: #333; color: #fff; border-radius: 4px; font-size: 11px; opacity: 0; pointer-events: none; z-index: 10; }
     </style>
 </head>
 <body>
 
-<div id="tooltip" class="tooltip"></div>
+<div class="ui-overlay">
+    <strong style="font-size: 14px; color: #222;">Map Hierarchy</strong>
+    <div class="legend-item"><div class="dot" style="background: #2ca02c;"></div> <strong>Categories</strong> (Size ∝ Connections)</div>
+    <div class="legend-item"><div class="dot" style="background: #1f77b4;"></div> <strong>Tasks</strong></div>
+    <div class="legend-item"><div class="dot" style="background: #ff7f0e;"></div> <strong>Studies</strong></div>
+    <p style="font-size: 10px; color: #777; margin-top: 10px;">Drag nodes to rearrange.<br>Hover links for scores.</p>
+</div>
 
+<div id="tooltip" class="tooltip"></div>
 <svg></svg>
 
 <script>
-    d3.json("modified_visualization_data.json").then(function(graph) {
+    d3.json("modified_visualization_data_v2.json").then(function(graph) {
         const svg = d3.select("svg"),
             width = window.innerWidth,
             height = window.innerHeight,
             tooltip = d3.select("#tooltip");
 
+        // Hierarchy Tiers
         const tiers = { "category": height * 0.15, "task": height * 0.5, "study": height * 0.85 };
-        const colorScale = { "study": "#ff7f0e", "task": "#1f77b4", "category": "#2ca02c" };
+        const colors = { "study": "#ff7f0e", "task": "#1f77b4", "category": "#2ca02c" };
 
+        // 1. Calculate dynamic radius for categories
+        const counts = graph.nodes.filter(n => n.group === 'category').map(n => n.count || 0);
+        const radiusScale = d3.scaleSqrt()
+            .domain([d3.min(counts), d3.max(counts)])
+            .range([12, 35]); // Min 12px, Max 35px
+
+        // 2. Initialize Simulation with Wide Expansion
         const simulation = d3.forceSimulation(graph.nodes)
-            .force("y", d3.forceY(d => tiers[d.group]).strength(0.8))
-            .force("x", d3.forceX(width / 2).strength(0.1))
-            .force("link", d3.forceLink(graph.links).id(d => d.id).distance(60))
-            .force("charge", d3.forceManyBody().strength(-120))
-            .force("collision", d3.forceCollide().radius(25));
+            .force("link", d3.forceLink(graph.links).id(d => d.id).distance(70).strength(0.3))
+            // Stronger repulsion to fill the wide frame
+            .force("charge", d3.forceManyBody().strength(-250))
+            // Pull to specific vertical tiers
+            .force("y", d3.forceY(d => tiers[d.group]).strength(1.2))
+            // Spread horizontally across the frame
+            .force("x", d3.forceX(width / 2).strength(0.05))
+            .force("collision", d3.forceCollide().radius(d => {
+                if (d.group === 'category') return radiusScale(d.count || 0) + 20;
+                return 25;
+            }));
 
-        // 1. Draw Links with dynamic width and opacity
+        // Links
         const link = svg.append("g")
             .attr("class", "links")
             .selectAll("line")
             .data(graph.links)
             .enter().append("line")
-            // Thicker lines for higher values
-            .attr("stroke-width", d => d.value > 1 ? (d.value * 0.8) : 1)
-            // Higher opacity for higher values
-            .attr("stroke-opacity", d => d.value > 1 ? (d.value / 10) : 0.2)
-            .on("mouseover", (event, d) => {
-                if(d.value > 1) { // Only show tooltip for task -> category links
-                    tooltip.style("opacity", 1)
-                           .html(`<strong>Score:</strong> ${d.value}`)
-                           .style("left", (event.pageX + 10) + "px")
-                           .style("top", (event.pageY - 10) + "px");
+            .attr("stroke-width", d => d.value > 1 ? (d.value * 0.7) : 1)
+            .attr("stroke-opacity", d => d.value > 1 ? (0.2 + (d.value / 15)) : 0.1)
+            .on("mouseover", (e, d) => {
+                if(d.value > 1) {
+                    d3.select(e.target).classed("highlight", true);
+                    tooltip.style("opacity", 1).html(`Score: ${d.value}`)
+                        .style("left", (e.pageX + 10) + "px").style("top", (e.pageY - 10) + "px");
                 }
             })
-            .on("mouseout", () => tooltip.style("opacity", 0));
+            .on("mouseout", (e) => {
+                d3.select(e.target).classed("highlight", false);
+                tooltip.style("opacity", 0);
+            });
 
+        // Nodes
         const node = svg.append("g")
-            .attr("class", "nodes")
             .selectAll("g")
             .data(graph.nodes)
             .enter().append("g")
             .call(d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended));
 
         node.append("circle")
-            .attr("r", d => d.group === "task" ? 7 : 12)
-            .attr("fill", d => colorScale[d.group]);
+            .attr("r", d => d.group === 'category' ? radiusScale(d.count || 0) : (d.group === 'study' ? 10 : 6))
+            .attr("fill", d => colors[d.group]);
 
         node.append("text")
-            .attr("dx", 15)
-            .attr("dy", ".35em")
+            .attr("class", d => d.group === 'category' ? "cat-label" : "")
+            .attr("dx", d => d.group === 'category' ? 0 : 14)
+            .attr("dy", d => d.group === 'category' ? 5 : ".35em")
+            .attr("text-anchor", d => d.group === 'category' ? "middle" : "start")
             .text(d => d.id);
 
+        // 3. Tick function with Frame Bounding Logic
         simulation.on("tick", () => {
+            node.each(d => {
+                const r = d.group === 'category' ? radiusScale(d.count || 0) : 10;
+                // Keep nodes within frame boundaries [padding, width-padding]
+                d.x = Math.max(r + 50, Math.min(width - r - 50, d.x));
+                d.y = Math.max(r, Math.min(height - r, d.y));
+            });
+
             link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
                 .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
             node.attr("transform", d => `translate(${d.x},${d.y})`);
