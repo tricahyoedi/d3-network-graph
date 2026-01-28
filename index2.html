@@ -31,7 +31,7 @@
             .attr("width", width)
             .attr("height", height);
 
-        d3.json("visualization_data_top3.json").then(data => {
+        d3.json("visualization_data.json").then(data => {
             const categories = data.nodes.filter(d => d.group === "category");
             const tasks = data.nodes.filter(d => d.group === "task");
 
