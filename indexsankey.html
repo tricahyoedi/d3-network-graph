@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sankey Diagram (JSON)</title>
+  <title>Sankey Diagram – Studies → Tasks → Categories</title>
 
   <!-- D3 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -13,37 +13,52 @@
     body {
       font-family: Arial, sans-serif;
     }
+
+    svg {
+      border: 1px solid #ddd;
+    }
+
     .link {
       fill: none;
       stroke: #999;
-      stroke-opacity: 0.4;
+      stroke-opacity: 0.35;
     }
+
     .node rect {
-      fill: steelblue;
+      stroke: #000;
+      stroke-width: 0.5px;
     }
+
     .node text {
-      font-size: 12px;
+      font-size: 11px;
       pointer-events: none;
     }
   </style>
 </head>
 <body>
 
-<h2>Sankey Diagram Example</h2>
-<svg width="800" height="400"></svg>
+<h2>Sankey Diagram: Studies → Tasks → Categories</h2>
+
+<svg width="1600" height="900"></svg>
 
 <script>
-const width = 800;
-const height = 400;
+const width = 1600;
+const height = 900;
 
 const svg = d3.select("svg");
 
-// Load JSON
-d3.json("datasankey.json").then(data => {
+// Color by group
+const color = d3.scaleOrdinal()
+  .domain(["study", "task", "category"])
+  .range(["#4C78A8", "#F58518", "#54A24B"]);
+
+// Load your JSON
+d3.json("modified_visualization_data.json").then(data => {
 
   const sankey = d3.sankey()
-    .nodeWidth(20)
-    .nodePadding(15)
+    .nodeId(d => d.id)   // 🔑 IMPORTANT: use string IDs
+    .nodeWidth(18)
+    .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 6]]);
 
   const graph = sankey({
@@ -51,7 +66,7 @@ d3.json("datasankey.json").then(data => {
     links: data.links.map(d => Object.assign({}, d))
   });
 
-  // Links
+  // Draw links
   svg.append("g")
     .selectAll(".link")
     .data(graph.links)
@@ -60,7 +75,7 @@ d3.json("datasankey.json").then(data => {
     .attr("d", d3.sankeyLinkHorizontal())
     .attr("stroke-width", d => Math.max(1, d.width));
 
-  // Nodes
+  // Draw nodes
   const node = svg.append("g")
     .selectAll(".node")
     .data(graph.nodes)
@@ -71,17 +86,20 @@ d3.json("datasankey.json").then(data => {
     .attr("x", d => d.x0)
     .attr("y", d => d.y0)
     .attr("height", d => d.y1 - d.y0)
-    .attr("width", d => d.x1 - d.x0);
+    .attr("width", d => d.x1 - d.x0)
+    .attr("fill", d => color(d.group));
 
+  // Labels
   node.append("text")
     .attr("x", d => d.x0 - 6)
     .attr("y", d => (d.y0 + d.y1) / 2)
     .attr("dy", "0.35em")
     .attr("text-anchor", "end")
-    .text(d => d.name)
+    .text(d => d.id)
     .filter(d => d.x0 < width / 2)
     .attr("x", d => d.x1 + 6)
     .attr("text-anchor", "start");
+
 });
 </script>
 
