@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Sankey – Paper Style</title>
+  <title>Blocky Sankey (Paper Style)</title>
 
   <!-- D3 -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -11,194 +11,165 @@
   <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 
   <style>
-    :root{
-      --bg: #ffffff;
-      --text: #111;
-      --muted: #6b6b6b;
-      --border: #e8e8e8;
-    }
     body{
-      margin: 0;
-      padding: 24px;
-      background: var(--bg);
-      color: var(--text);
+      margin:0;
+      padding:24px;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background:#fff;
+      color:#111;
     }
-    .title{
-      font-size: 20px;
-      font-weight: 700;
-      margin: 0 0 10px 0;
-      letter-spacing: 0.2px;
-    }
-    .subtitle{
-      margin: 0 0 18px 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.4;
-      max-width: 1100px;
+    h2{
+      margin:0 0 14px 0;
+      font-size:20px;
+      font-weight:800;
     }
 
     svg{
       width: 1600px;
       height: 900px;
-      border: 1px solid var(--border);
+      border: 1px solid #e8e8e8;
       border-radius: 12px;
       background: #fff;
+      display:block;
     }
 
-    /* link look (soft like your reference figure) */
-    .link{
+    /* --- This is what makes it look “blocky” --- */
+    .links path{
       fill: none;
-      stroke-opacity: 0.22;
-      mix-blend-mode: multiply;
+      stroke-opacity: 0.55;         /* higher opacity => more solid ribbons */
+      mix-blend-mode: multiply;     /* blends overlaps => “color blocks” */
     }
 
-    /* nodes */
-    .node rect{
+    .nodes rect{
       stroke: rgba(0,0,0,0.18);
       stroke-width: 0.6px;
-      rx: 8;
-      ry: 8;
+      rx: 2; ry: 2;                 /* small radius => more block-like */
     }
-    .node text{
+
+    .nodes text{
       font-size: 11px;
-      fill: #1a1a1a;
+      fill: #111;
       pointer-events: none;
     }
 
-    /* column headers */
     .col-header{
-      font-weight: 800;
+      font-weight: 900;
       font-size: 22px;
       fill: #111;
     }
   </style>
 </head>
-
 <body>
-  <h1 class="title">Sankey Diagram</h1>
-  <p class="subtitle">
-    Styled to match a clean “paper Sankey” design: column headers, rounded nodes, pastel palettes, and soft translucent flows.
-  </p>
 
-  <svg id="viz" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet"></svg>
+<h2>Studies → Tasks → Categories (Blocky / Paper Style)</h2>
+<svg id="viz" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet"></svg>
 
-  <script>
-    const width = 1600, height = 900;
+<script>
+  const width = 1600, height = 900;
+  const svg = d3.select("#viz");
 
-    const svg = d3.select("#viz");
+  // Column order you have in JSON via group field
+  const groupOrder = ["study", "task", "category"];
+  const groupTitles = { study: "Study", task: "Task", category: "Category" };
 
-    // ---- Load JSON (your file name) ----
-    d3.json("modified_visualization_data.json").then(raw => {
+  // Pastel-like palettes per column (similar vibe to your reference)
+  const palette = {
+    study: t => d3.interpolateRgb("#b65b78", "#f2c8d5")(t),     // mauve → light pink
+    task: t => d3.interpolateRgb("#0c7f86", "#d7efef")(t),      // teal → pale teal
+    category: t => d3.interpolateRgb("#1f6f8b", "#d9eaf2")(t)   // blue → pale blue
+  };
 
-      // Expect groups: study / task / category
-      const groupOrder = ["study", "task", "category"];
-      const groupTitles = {
-        study: "Study",
-        task: "Task",
-        category: "Category"
-      };
+  // Use your JSON (same folder)
+  d3.json("modified_visualization_data.json").then(raw => {
 
-      // Build per-group palettes (pastel-ish, like the reference)
-      // We assign different shades *within each column*.
-      const groupPalettes = {
-        study: t => d3.interpolateRgb("#b65b78", "#f1c6d4")(t),    // mauve → light pink
-        task: t => d3.interpolateRgb("#0c7f86", "#cfe9ea")(t),     // teal → pale teal
-        category: t => d3.interpolateRgb("#1f6f8b", "#d7e8f0")(t)  // blue → pale blue
-      };
+    const nodes = raw.nodes.map(d => ({...d}));
+    const links = raw.links.map(d => ({...d}));
 
-      // Copy to avoid mutation issues
-      const nodes = raw.nodes.map(d => ({...d}));
-      const links = raw.links.map(d => ({...d}));
+    // Give each node a stable shade within its column
+    const nodeColor = new Map();
+    const grouped = d3.group(nodes, d => d.group);
 
-      // Assign a stable pastel color per node within its group
-      // (This imitates “multi-node colors per column” in your reference.)
-      const nodesByGroup = d3.group(nodes, d => d.group);
-      const nodeColor = new Map();
-
-      for (const g of groupOrder) {
-        const arr = (nodesByGroup.get(g) || []).slice().sort((a,b) => d3.ascending(a.id, b.id));
-        const n = Math.max(1, arr.length);
-        arr.forEach((node, i) => {
-          const t = (n === 1) ? 0.5 : i / (n - 1);
-          nodeColor.set(node.id, groupPalettes[g](t));
-        });
-      }
-
-      // Sankey layout
-      const sankey = d3.sankey()
-        .nodeId(d => d.id)              // IMPORTANT: your links use string IDs
-        .nodeAlign(d3.sankeyJustify)
-        .nodeWidth(18)
-        .nodePadding(10)
-        .extent([[40, 70], [width - 40, height - 30]]);  // leave top space for headers
-
-      const graph = sankey({
-        nodes: nodes.map(d => ({...d})),
-        links: links.map(d => ({...d}))
+    for (const g of groupOrder) {
+      const arr = (grouped.get(g) || []).slice().sort((a,b) => d3.ascending(a.id, b.id));
+      const n = Math.max(1, arr.length);
+      arr.forEach((node, i) => {
+        const t = (n === 1) ? 0.5 : i / (n - 1);
+        nodeColor.set(node.id, palette[g](t));
       });
+    }
 
-      // ---- Column headers (based on group x-positions) ----
-      // We compute each column center from nodes in that group.
-      const headerLayer = svg.append("g");
+    // --- KEY CHANGE for “blocky” look ---
+    // 1) very small nodePadding => flows stack tightly like blocks
+    // 2) butt linecaps => flat ends (less stringy)
+    // 3) higher opacity + blend mode already in CSS
+    const sankey = d3.sankey()
+      .nodeId(d => d.id)              // IMPORTANT: your links use string IDs
+      .nodeAlign(d3.sankeyJustify)
+      .nodeWidth(18)
+      .nodePadding(2)                 // ✅ THIS makes it feel like “color blocks”
+      .extent([[40, 70], [width - 40, height - 30]]);
 
-      groupOrder.forEach(g => {
-        const gNodes = graph.nodes.filter(n => n.group === g);
-        if (!gNodes.length) return;
-
-        const xCenter = d3.mean(gNodes, n => (n.x0 + n.x1) / 2);
-        headerLayer.append("text")
-          .attr("class", "col-header")
-          .attr("x", xCenter)
-          .attr("y", 40)
-          .attr("text-anchor", "middle")
-          .text(groupTitles[g] || g);
-      });
-
-      // ---- Links ----
-      svg.append("g")
-        .attr("stroke-linecap", "round")
-        .selectAll("path")
-        .data(graph.links)
-        .join("path")
-        .attr("class", "link")
-        .attr("d", d3.sankeyLinkHorizontal())
-        .attr("stroke", d => nodeColor.get(d.source.id) || "#999")
-        .attr("stroke-width", d => Math.max(0.8, d.width));
-
-      // ---- Nodes ----
-      const node = svg.append("g")
-        .selectAll("g")
-        .data(graph.nodes)
-        .join("g")
-        .attr("class", "node");
-
-      node.append("rect")
-        .attr("x", d => d.x0)
-        .attr("y", d => d.y0)
-        .attr("height", d => Math.max(1, d.y1 - d.y0))
-        .attr("width", d => Math.max(1, d.x1 - d.x0))
-        .attr("fill", d => nodeColor.get(d.id) || "#ccc");
-
-      // Labels:
-      // Put labels outside nodes (like your reference). Auto-left/right.
-      node.append("text")
-        .attr("x", d => d.x0 - 10)
-        .attr("y", d => (d.y0 + d.y1) / 2)
-        .attr("dy", "0.35em")
-        .attr("text-anchor", "end")
-        .text(d => d.id)
-        .filter(d => d.x0 < width / 2)
-        .attr("x", d => d.x1 + 10)
-        .attr("text-anchor", "start");
-
-      // Optional: subtle background gridline effect? (kept OFF by default)
-      // You can add it if you want the “figure polish”.
-
-    }).catch(err => {
-      console.error(err);
-      alert("Could not load JSON. Make sure you run a local server and the JSON filename matches.");
+    const graph = sankey({
+      nodes: nodes.map(d => ({...d})),
+      links: links.map(d => ({...d}))
     });
-  </script>
+
+    // Column headers (computed from each group’s x position)
+    const headers = svg.append("g");
+    groupOrder.forEach(g => {
+      const gNodes = graph.nodes.filter(n => n.group === g);
+      if (!gNodes.length) return;
+      const xCenter = d3.mean(gNodes, n => (n.x0 + n.x1) / 2);
+
+      headers.append("text")
+        .attr("class", "col-header")
+        .attr("x", xCenter)
+        .attr("y", 42)
+        .attr("text-anchor", "middle")
+        .text(groupTitles[g] || g);
+    });
+
+    // Links
+    svg.append("g")
+      .attr("class", "links")
+      .attr("stroke-linecap", "butt")     // ✅ flat ends => block feeling
+      .selectAll("path")
+      .data(graph.links)
+      .join("path")
+      .attr("d", d3.sankeyLinkHorizontal())
+      .attr("stroke", d => nodeColor.get(d.source.id) || "#999")
+      .attr("stroke-width", d => Math.max(0.9, d.width));  // thicker ribbons
+
+    // Nodes
+    const node = svg.append("g")
+      .attr("class", "nodes")
+      .selectAll("g")
+      .data(graph.nodes)
+      .join("g");
+
+    node.append("rect")
+      .attr("x", d => d.x0)
+      .attr("y", d => d.y0)
+      .attr("height", d => Math.max(1, d.y1 - d.y0))
+      .attr("width", d => Math.max(1, d.x1 - d.x0))
+      .attr("fill", d => nodeColor.get(d.id) || "#ccc");
+
+    // Labels outside nodes (like your reference)
+    node.append("text")
+      .attr("x", d => d.x0 - 10)
+      .attr("y", d => (d.y0 + d.y1) / 2)
+      .attr("dy", "0.35em")
+      .attr("text-anchor", "end")
+      .text(d => d.id)
+      .filter(d => d.x0 < width / 2)
+      .attr("x", d => d.x1 + 10)
+      .attr("text-anchor", "start");
+
+  }).catch(err => {
+    console.error(err);
+    alert("JSON load failed. Run a local server (python -m http.server) and ensure the JSON filename matches.");
+  });
+</script>
+
 </body>
 </html>
