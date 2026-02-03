@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Normalized Block Sankey</title>
+<title>Task-count Normalized Sankey</title>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
@@ -42,7 +42,7 @@ svg{
 </head>
 
 <body>
-<h2>Studies → Tasks → Categories (Fully Normalized)</h2>
+<h2>Studies → Tasks → Categories (Task-count based)</h2>
 <svg id="viz" viewBox="0 0 1600 900"></svg>
 
 <script>
@@ -51,13 +51,37 @@ const svg = d3.select("#viz");
 
 d3.json("modified_visualization_data.json").then(raw => {
 
-  let nodes = raw.nodes.map(d => ({...d}));
-  let links = raw.links.map(d => ({...d}));
+  /* =====================================================
+     1) COPY NODES
+     ===================================================== */
+  const nodes = raw.nodes.map(d => ({...d}));
 
-  /* ======================================================
-     1) STRICT ORDERING (top → bottom)
-     ====================================================== */
+  /* =====================================================
+     2) REBUILD LINKS: EACH TASK = 1 UNIT
+     ===================================================== */
+  const isStudy = id => id.startsWith("Study ");
+  const isTask  = id => id.startsWith("T");
+  const isCat   = id => /^\d+\.\s/.test(id);
 
+  let links = [];
+
+  // Study → Task (1 per task)
+  raw.links.forEach(l => {
+    if (isStudy(l.source) && isTask(l.target)) {
+      links.push({ source: l.source, target: l.target, value: 1 });
+    }
+  });
+
+  // Task → Category (1 per task-category mapping)
+  raw.links.forEach(l => {
+    if (isTask(l.source) && isCat(l.target)) {
+      links.push({ source: l.source, target: l.target, value: 1 });
+    }
+  });
+
+  /* =====================================================
+     3) STRICT ORDERING
+     ===================================================== */
   const studyOrder = d3.sort(
     nodes.filter(d=>d.group==="study"),
     d => +d.id.replace("Study ","")
@@ -73,76 +97,37 @@ d3.json("modified_visualization_data.json").then(raw => {
     d => +d.id.match(/^\d+/)[0]
   ).map(d=>d.id);
 
-  const orderIndex = new Map();
-  [...studyOrder, ...taskOrder, ...categoryOrder]
-    .forEach((id,i)=>orderIndex.set(id,i));
-
-  /* ======================================================
-     2) NORMALIZE FLOWS SO ALL COLUMNS = 100% HEIGHT
-     ====================================================== */
-
-  const isStudy  = id => id.startsWith("Study ");
-  const isTask   = id => id.startsWith("T");
-  const isCat    = id => /^\d+\.\s/.test(id);
-
-  const studyLinks = links.filter(l => isStudy(l.source) && isTask(l.target));
-  const taskLinks  = links.filter(l => isTask(l.source)  && isCat(l.target));
-
-  const sumStudy = d3.sum(studyLinks, d=>d.value);
-  const sumTask  = d3.sum(taskLinks,  d=>d.value);
-
-  const studyScale = sumStudy > 0 ? sumTask / sumStudy : 1;
-
-  links = links.map(l=>{
-    if(isStudy(l.source) && isTask(l.target)){
-      return {...l, value: l.value * studyScale};
-    }
-    return l;
-  });
-
-  // Recalculate after scaling study
-  const newStudySum = d3.sum(
-    links.filter(l=>isStudy(l.source) && isTask(l.target)),
-    d=>d.value
+  const orderIndex = new Map(
+    [...studyOrder, ...taskOrder, ...categoryOrder]
+      .map((id,i)=>[id,i])
   );
 
-  const catScale = newStudySum > 0 ? newStudySum / sumTask : 1;
-
-  links = links.map(l=>{
-    if(isTask(l.source) && isCat(l.target)){
-      return {...l, value: l.value * catScale};
-    }
-    return l;
-  });
-
-  /* ======================================================
-     3) COLOR MAPS (unique Study & Category)
-     ====================================================== */
-
+  /* =====================================================
+     4) COLORS (UNIQUE STUDY & CATEGORY)
+     ===================================================== */
   const studyColors = d3.quantize(d3.interpolateRainbow, studyOrder.length);
   const categoryColors = d3.quantize(d3.interpolateRainbow, categoryOrder.length);
 
   const studyColor = new Map(studyOrder.map((id,i)=>[id,studyColors[i]]));
   const categoryColor = new Map(categoryOrder.map((id,i)=>[id,categoryColors[i]]));
 
-  const linkColor = d => {
-    const s = d.source.id || d.source;
-    const t = d.target.id || d.target;
-    if(isStudy(s)) return studyColor.get(s);
-    if(isCat(t)) return categoryColor.get(t);
-    return "#999";
-  };
-
   const nodeColor = d => {
-    if(d.group==="study") return studyColor.get(d.id);
-    if(d.group==="category") return categoryColor.get(d.id);
+    if (d.group==="study") return studyColor.get(d.id);
+    if (d.group==="category") return categoryColor.get(d.id);
     return "#0c7f86"; // task
   };
 
-  /* ======================================================
-     4) SANKEY (no auto-reordering)
-     ====================================================== */
+  const linkColor = d => {
+    const s = d.source.id || d.source;
+    const t = d.target.id || d.target;
+    if (isStudy(s)) return studyColor.get(s);
+    if (isCat(t)) return categoryColor.get(t);
+    return "#999";
+  };
 
+  /* =====================================================
+     5) SANKEY (TRUE 100% HEIGHT)
+     ===================================================== */
   const sankey = d3.sankey()
     .nodeId(d=>d.id)
     .nodeWidth(18)
@@ -156,12 +141,12 @@ d3.json("modified_visualization_data.json").then(raw => {
     links: links.map(d=>({...d}))
   });
 
-  /* ======================================================
-     5) HEADERS
-     ====================================================== */
+  /* =====================================================
+     6) HEADERS
+     ===================================================== */
   const headers = [
-    {name:"Study",    group:"study"},
-    {name:"Task",     group:"task"},
+    {name:"Study", group:"study"},
+    {name:"Task", group:"task"},
     {name:"Category", group:"category"}
   ];
 
@@ -176,10 +161,9 @@ d3.json("modified_visualization_data.json").then(raw => {
       .text(h.name);
   });
 
-  /* ======================================================
-     6) DRAW
-     ====================================================== */
-
+  /* =====================================================
+     7) DRAW
+     ===================================================== */
   svg.append("g")
     .attr("class","links")
     .attr("stroke-linecap","butt")
