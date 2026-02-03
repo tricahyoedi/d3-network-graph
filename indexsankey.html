@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Blocky Sankey – Weighted Study Column</title>
+  <title>Blocky Sankey – Full-height Study & Category + Unique Colors</title>
 
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
@@ -15,13 +15,11 @@
       background:#fff;
       color:#111;
     }
-
     h2{
       margin:0 0 14px 0;
       font-size:20px;
       font-weight:800;
     }
-
     svg{
       width:1600px;
       height:900px;
@@ -31,7 +29,7 @@
       display:block;
     }
 
-    /* Blocky ribbon style */
+    /* Blocky flows */
     .links path{
       fill:none;
       stroke-opacity:0.55;
@@ -43,7 +41,6 @@
       stroke-width:0.6px;
       rx:2; ry:2;
     }
-
     .nodes text{
       font-size:11px;
       fill:#111;
@@ -59,8 +56,7 @@
 </head>
 
 <body>
-
-<h2>Studies → Tasks → Categories (Study Thickness = Number of Tasks)</h2>
+<h2>Studies → Tasks → Categories (Study & Category expanded + unique colors)</h2>
 <svg id="viz" viewBox="0 0 1600 900"></svg>
 
 <script>
@@ -70,126 +66,147 @@ const svg = d3.select("#viz");
 const groupOrder = ["study", "task", "category"];
 const groupTitles = { study:"Study", task:"Task", category:"Category" };
 
-// Pastel palettes per column
-const palette = {
-  study: t => d3.interpolateRgb("#b65b78", "#f2c8d5")(t),
-  task: t => d3.interpolateRgb("#0c7f86", "#d7efef")(t),
-  category: t => d3.interpolateRgb("#1f6f8b", "#d9eaf2")(t)
-};
-
 d3.json("modified_visualization_data.json").then(raw => {
 
   const nodes = raw.nodes.map(d => ({...d}));
   let links = raw.links.map(d => ({...d}));
 
-  /* =====================================================
-     KEY ADDITION:
-     Weight Study → Task links by number of tasks per study
-     ===================================================== */
+  // --- Helpers to identify node type from ID ---
+  const isStudyId = (id) => typeof id === "string" && id.startsWith("Study ");
+  const isTaskId =  (id) => typeof id === "string" && id.startsWith("T");
+  const isCategoryId = (id) => typeof id === "string" && /^\d+\.\s/.test(id);
 
-  // Count tasks per study
-  const studyTaskCount = d3.rollup(
-    links.filter(l => l.source.startsWith("Study")),
-    v => v.length,
-    l => l.source
-  );
+  // --- Build quick lookup: nodeId -> group ---
+  const nodeGroup = new Map(nodes.map(n => [n.id, n.group]));
 
-  // Reweight ONLY Study → Task links
+  // --- Split links by layer (Study→Task and Task→Category) ---
+  const studyToTask = links.filter(l => isStudyId(l.source) && isTaskId(l.target));
+  const taskToCat   = links.filter(l => isTaskId(l.source) && isCategoryId(l.target));
+
+  // ==========================================================
+  // 1) EXPAND STUDY COLUMN TO 100% HEIGHT
+  // ----------------------------------------------------------
+  // D3 sankey uses ONE global scale factor across columns.
+  // If Study→Task total is tiny (currently value=1), Study looks short.
+  // Fix: scale Study→Task link values so total matches Task→Category total.
+  // ==========================================================
+  const totalStudyFlow = d3.sum(studyToTask, d => +d.value || 0);
+  const totalTaskFlow  = d3.sum(taskToCat,   d => +d.value || 0);
+
+  const studyScale = (totalStudyFlow > 0) ? (totalTaskFlow / totalStudyFlow) : 1;
+
   links = links.map(l => {
-    if (l.source.startsWith("Study")) {
-      return {
-        ...l,
-        value: studyTaskCount.get(l.source) || 1
-      };
+    if (isStudyId(l.source) && isTaskId(l.target)) {
+      return { ...l, value: (+l.value || 0) * studyScale };
     }
     return l;
   });
 
-  /* =====================================================
-     Color assignment (stable within each column)
-     ===================================================== */
-  const nodeColor = new Map();
-  const grouped = d3.group(nodes, d => d.group);
+  // ==========================================================
+  // 2) UNIQUE COLORS FOR EACH STUDY AND EACH CATEGORY
+  // ----------------------------------------------------------
+  // We generate distinct palettes using interpolateRainbow
+  // so you get enough unique colors (16 studies, 8 categories).
+  // ==========================================================
+  const studies = nodes.filter(n => n.group === "study").map(n => n.id).sort(d3.ascending);
+  const categories = nodes.filter(n => n.group === "category").map(n => n.id).sort(d3.ascending);
 
-  for (const g of groupOrder) {
-    const arr = (grouped.get(g) || []).slice().sort((a,b) => d3.ascending(a.id,b.id));
-    const n = Math.max(1, arr.length);
-    arr.forEach((node,i)=>{
-      const t = (n===1)?0.5:i/(n-1);
-      nodeColor.set(node.id, palette[g](t));
-    });
-  }
+  const studyColors = d3.quantize(d3.interpolateRainbow, Math.max(3, studies.length));
+  const categoryColors = d3.quantize(d3.interpolateRainbow, Math.max(3, categories.length))
+                           .map(c => d3.color(c).brighter(0.2) + ""); // slight lift
 
-  /* =====================================================
-     Sankey layout
-     ===================================================== */
+  const studyColorMap = new Map(studies.map((id, i) => [id, studyColors[i]]));
+  const categoryColorMap = new Map(categories.map((id, i) => [id, categoryColors[i]]));
+
+  // Task nodes: neutral (keeps focus on Study/Category blocks)
+  const taskFill = "#0c7f86"; // a calm teal
+
+  const nodeFill = (node) => {
+    if (node.group === "study") return studyColorMap.get(node.id) || "#999";
+    if (node.group === "category") return categoryColorMap.get(node.id) || "#999";
+    return taskFill;
+  };
+
+  // Link coloring rule:
+  // - Study→Task links: color by Study
+  // - Task→Category links: color by Category (target), to make right side blocky
+  const linkStroke = (link) => {
+    const s = link.source.id ?? link.source;
+    const t = link.target.id ?? link.target;
+
+    if (isStudyId(s) && isTaskId(t)) return studyColorMap.get(s) || "#999";
+    if (isTaskId(s) && isCategoryId(t)) return categoryColorMap.get(t) || "#999";
+    return "#999";
+  };
+
+  // ==========================================================
+  // 3) Sankey layout (tight padding for “blocky” look)
+  // ==========================================================
   const sankey = d3.sankey()
     .nodeId(d => d.id)
     .nodeAlign(d3.sankeyJustify)
     .nodeWidth(18)
-    .nodePadding(2)        // tight stacking → blocky
-    .extent([[40,70],[width-40,height-30]]);
+    .nodePadding(2)
+    .extent([[40, 70], [width - 40, height - 30]]);
 
   const graph = sankey({
     nodes: nodes.map(d => ({...d})),
     links: links.map(d => ({...d}))
   });
 
-  /* =====================================================
-     Column headers
-     ===================================================== */
+  // --- Column headers (by group x-center) ---
   const headers = svg.append("g");
-  groupOrder.forEach(g=>{
-    const gNodes = graph.nodes.filter(n=>n.group===g);
-    if(!gNodes.length) return;
-    const xCenter = d3.mean(gNodes, n=>(n.x0+n.x1)/2);
+  groupOrder.forEach(g => {
+    const gNodes = graph.nodes.filter(n => n.group === g);
+    if (!gNodes.length) return;
+    const xCenter = d3.mean(gNodes, n => (n.x0 + n.x1) / 2);
     headers.append("text")
-      .attr("class","col-header")
-      .attr("x",xCenter)
-      .attr("y",42)
-      .attr("text-anchor","middle")
-      .text(groupTitles[g]);
+      .attr("class", "col-header")
+      .attr("x", xCenter)
+      .attr("y", 42)
+      .attr("text-anchor", "middle")
+      .text(groupTitles[g] || g);
   });
 
-  /* =====================================================
-     Links
-     ===================================================== */
+  // --- Links ---
   svg.append("g")
-    .attr("class","links")
-    .attr("stroke-linecap","butt")
+    .attr("class", "links")
+    .attr("stroke-linecap", "butt")
     .selectAll("path")
     .data(graph.links)
     .join("path")
     .attr("d", d3.sankeyLinkHorizontal())
-    .attr("stroke", d => nodeColor.get(d.source.id))
-    .attr("stroke-width", d => Math.max(1, d.width));
+    .attr("stroke", d => linkStroke(d))
+    .attr("stroke-width", d => Math.max(0.9, d.width));
 
-  /* =====================================================
-     Nodes
-     ===================================================== */
+  // --- Nodes ---
   const node = svg.append("g")
-    .attr("class","nodes")
+    .attr("class", "nodes")
     .selectAll("g")
     .data(graph.nodes)
     .join("g");
 
   node.append("rect")
-    .attr("x", d=>d.x0)
-    .attr("y", d=>d.y0)
-    .attr("height", d=>Math.max(1,d.y1-d.y0))
-    .attr("width", d=>Math.max(1,d.x1-d.x0))
-    .attr("fill", d=>nodeColor.get(d.id));
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("height", d => Math.max(1, d.y1 - d.y0))
+    .attr("width", d => Math.max(1, d.x1 - d.x0))
+    .attr("fill", d => nodeFill(d));
 
+  // Labels outside nodes
   node.append("text")
-    .attr("x", d=>d.x0-10)
-    .attr("y", d=>(d.y0+d.y1)/2)
-    .attr("dy","0.35em")
-    .attr("text-anchor","end")
-    .text(d=>d.id)
-    .filter(d=>d.x0<width/2)
-    .attr("x", d=>d.x1+10)
-    .attr("text-anchor","start");
+    .attr("x", d => d.x0 - 10)
+    .attr("y", d => (d.y0 + d.y1) / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", "end")
+    .text(d => d.id)
+    .filter(d => d.x0 < width / 2)
+    .attr("x", d => d.x1 + 10)
+    .attr("text-anchor", "start");
 
+}).catch(err => {
+  console.error(err);
+  alert("JSON load failed. Run a local server (python -m http.server) and ensure JSON filename matches.");
 });
 </script>
 
