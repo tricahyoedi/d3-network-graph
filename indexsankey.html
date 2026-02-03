@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sankey Diagram (JSON)</title>
+
+  <!-- D3 -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <!-- D3 Sankey -->
+  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    .link {
+      fill: none;
+      stroke: #999;
+      stroke-opacity: 0.4;
+    }
+    .node rect {
+      fill: steelblue;
+    }
+    .node text {
+      font-size: 12px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Sankey Diagram Example</h2>
+<svg width="800" height="400"></svg>
+
+<script>
+const width = 800;
+const height = 400;
+
+const svg = d3.select("svg");
+
+// Load JSON
+d3.json("datasankey.json").then(data => {
+
+  const sankey = d3.sankey()
+    .nodeWidth(20)
+    .nodePadding(15)
+    .extent([[1, 1], [width - 1, height - 6]]);
+
+  const graph = sankey({
+    nodes: data.nodes.map(d => Object.assign({}, d)),
+    links: data.links.map(d => Object.assign({}, d))
+  });
+
+  // Links
+  svg.append("g")
+    .selectAll(".link")
+    .data(graph.links)
+    .join("path")
+    .attr("class", "link")
+    .attr("d", d3.sankeyLinkHorizontal())
+    .attr("stroke-width", d => Math.max(1, d.width));
+
+  // Nodes
+  const node = svg.append("g")
+    .selectAll(".node")
+    .data(graph.nodes)
+    .join("g")
+    .attr("class", "node");
+
+  node.append("rect")
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("height", d => d.y1 - d.y0)
+    .attr("width", d => d.x1 - d.x0);
+
+  node.append("text")
+    .attr("x", d => d.x0 - 6)
+    .attr("y", d => (d.y0 + d.y1) / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", "end")
+    .text(d => d.name)
+    .filter(d => d.x0 < width / 2)
+    .attr("x", d => d.x1 + 6)
+    .attr("text-anchor", "start");
+});
+</script>
+
+</body>
+</html>
