@@ -2,10 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title> Sankey </title>
-
+<title>Sankey Diagram</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
 
 <style>
 body{
@@ -20,21 +18,19 @@ svg{
   border-radius:12px;
   background:#fff;
 }
-.links path{
+.node{
+  stroke:#000;
+  stroke-width:0.4px;
+}
+.link{
   fill:none;
-  stroke-opacity:0.6;
-  mix-blend-mode:multiply;
+  stroke-opacity:0.35;
 }
-.nodes rect{
-  stroke:rgba(0,0,0,0.18);
-  stroke-width:0.6px;
-  rx:2; ry:2;
-}
-.nodes text{
+.label{
   font-size:11px;
-  pointer-events:none;
+  dominant-baseline:middle;
 }
-.col-header{
+.header{
   font-size:22px;
   font-weight:900;
 }
@@ -42,173 +38,132 @@ svg{
 </head>
 
 <body>
-<h2>Studies → Tasks → Categories </h2>
+<h2>Studies → Tasks → Categories  </h2>
 <svg id="viz" viewBox="0 0 1600 900"></svg>
 
 <script>
 const width = 1600, height = 900;
+const margin = {top:70, bottom:30};
+const innerHeight = height - margin.top - margin.bottom;
+
 const svg = d3.select("#viz");
 
-d3.json("modified_visualization_data.json").then(raw => {
+d3.json("modified_visualization_data.json").then(data => {
 
   /* ---------- Helpers ---------- */
-  const isStudy = id => id.startsWith("Study ");
-  const isTask  = id => id.startsWith("T");
-  const isCat   = id => /^\d+\.\s/.test(id);
+  const isStudy = d => d.group === "study";
+  const isTask = d => d.group === "task";
+  const isCategory = d => d.group === "category";
 
-  /* ---------- Copy nodes ---------- */
-  const nodes = raw.nodes.map(d => ({...d}));
+  /* ---------- Sort nodes ---------- */
+  const studies = data.nodes.filter(isStudy)
+    .sort((a,b)=>+a.id.replace("Study ","")-+b.id.replace("Study ",""));
 
-  /* ---------- Count tasks ---------- */
-  const studyCount = d3.rollup(
-    raw.links.filter(l => isStudy(l.source) && isTask(l.target)),
-    v => v.length,
-    l => l.source
-  );
+  const tasks = data.nodes.filter(isTask)
+    .sort((a,b)=>+a.id.match(/\d+/)-+b.id.match(/\d+/));
 
-  const catCount = d3.rollup(
-    raw.links.filter(l => isTask(l.source) && isCat(l.target)),
-    v => v.length,
-    l => l.target
-  );
+  const categories = data.nodes.filter(isCategory)
+    .sort((a,b)=>+a.id.match(/^\d+/)-+b.id.match(/^\d+/));
 
-  const tasks = nodes.filter(d => d.group === "task").map(d => d.id);
-  const totalTasks = tasks.length;
+  /* ---------- Task connections ---------- */
+  const studyTask = data.links.filter(l=>l.source.startsWith("Study"));
+  const taskCategory = data.links.filter(l=>l.target.match(/^\d+\./));
 
-  /* ---------- Build links (task = 1 unit) ---------- */
-  let links = [];
+  const studyCounts = d3.rollup(studyTask, v=>v.length, d=>d.source);
+  const categoryCounts = d3.rollup(taskCategory, v=>v.length, d=>d.target);
 
-  raw.links.forEach(l => {
-    if (isStudy(l.source) && isTask(l.target))
-      links.push({ source:l.source, target:l.target, value:1 });
+  /* ---------- Vertical scales (INDEPENDENT) ---------- */
+  const taskScale = d3.scaleBand()
+    .domain(tasks.map(d=>d.id))
+    .range([margin.top, margin.top + innerHeight])
+    .padding(0);
 
-    if (isTask(l.source) && isCat(l.target))
-      links.push({ source:l.source, target:l.target, value:1 });
+  const studyScale = d3.scaleLinear()
+    .domain([0, d3.sum(studyCounts.values())])
+    .range([margin.top, margin.top + innerHeight]);
+
+  const categoryScale = d3.scaleLinear()
+    .domain([0, d3.sum(categoryCounts.values())])
+    .range([margin.top, margin.top + innerHeight]);
+
+  /* ---------- Layout positions ---------- */
+  const studyPos = new Map();
+  let acc = 0;
+  studies.forEach(s=>{
+    const h = studyCounts.get(s.id) || 0;
+    studyPos.set(s.id, {
+      y: studyScale(acc),
+      h: studyScale(acc + h) - studyScale(acc)
+    });
+    acc += h;
   });
 
-  /* ---------- ADD BALANCING NODES ---------- */
-  const STUDY_BAL = "__study_balance__";
-  const CAT_BAL   = "__category_balance__";
-
-  nodes.push({ id: STUDY_BAL, group:"balance" });
-  nodes.push({ id: CAT_BAL, group:"balance" });
-
-  // Balance Study column
-  studyCount.forEach((count, study) => {
-    const deficit = totalTasks - count;
-    if (deficit > 0) {
-      links.push({
-        source: study,
-        target: STUDY_BAL,
-        value: deficit,
-        _dummy: true
-      });
-    }
+  const categoryPos = new Map();
+  acc = 0;
+  categories.forEach(c=>{
+    const h = categoryCounts.get(c.id) || 0;
+    categoryPos.set(c.id, {
+      y: categoryScale(acc),
+      h: categoryScale(acc + h) - categoryScale(acc)
+    });
+    acc += h;
   });
-
-  // Balance Category column
-  catCount.forEach((count, cat) => {
-    const deficit = totalTasks - count;
-    if (deficit > 0) {
-      links.push({
-        source: CAT_BAL,
-        target: cat,
-        value: deficit,
-        _dummy: true
-      });
-    }
-  });
-
-  /* ---------- Ordering ---------- */
-  const ordered = [
-    ...nodes.filter(d=>d.group==="study").sort((a,b)=>+a.id.replace("Study ","")-+b.id.replace("Study ","")),
-    ...nodes.filter(d=>d.group==="task").sort((a,b)=>+a.id.match(/\d+/)-+b.id.match(/\d+/)),
-    ...nodes.filter(d=>d.group==="category").sort((a,b)=>+a.id.match(/^\d+/)-+b.id.match(/^\d+/))
-  ];
-
-  const orderIndex = new Map(ordered.map((d,i)=>[d.id,i]));
 
   /* ---------- Colors ---------- */
-  const studyIds = ordered.filter(d=>d.group==="study").map(d=>d.id);
-  const catIds   = ordered.filter(d=>d.group==="category").map(d=>d.id);
+  const studyColor = d3.scaleOrdinal()
+    .domain(studies.map(d=>d.id))
+    .range(d3.quantize(d3.interpolateRainbow, studies.length));
 
-  const studyColor = new Map(studyIds.map((id,i)=>[id,d3.interpolateRainbow(i/studyIds.length)]));
-  const catColor   = new Map(catIds.map((id,i)=>[id,d3.interpolateRainbow(i/catIds.length)]));
+  const categoryColor = d3.scaleOrdinal()
+    .domain(categories.map(d=>d.id))
+    .range(d3.quantize(d3.interpolateRainbow, categories.length));
 
-  const nodeColor = d => {
-    if (d.group==="study") return studyColor.get(d.id);
-    if (d.group==="category") return catColor.get(d.id);
-    if (d.group==="task") return "#0c7f86";
-    return "transparent";
-  };
+  /* ---------- Draw headers ---------- */
+  const cols = [
+    {x:200, label:"Study"},
+    {x:700, label:"Task"},
+    {x:1200, label:"Category"}
+  ];
 
-  const linkColor = d => {
-    if (d._dummy) return "transparent";
-    const s = d.source.id || d.source;
-    const t = d.target.id || d.target;
-    if (isStudy(s)) return studyColor.get(s);
-    if (isCat(t)) return catColor.get(t);
-    return "#999";
-  };
+  svg.selectAll(".header")
+    .data(cols)
+    .join("text")
+    .attr("class","header")
+    .attr("x",d=>d.x)
+    .attr("y",40)
+    .attr("text-anchor","middle")
+    .text(d=>d.label);
 
-  /* ---------- Sankey ---------- */
-  const sankey = d3.sankey()
-    .nodeId(d=>d.id)
-    .nodeWidth(18)
-    .nodePadding(2)
-    .nodeAlign(d3.sankeyJustify)
-    .nodeSort((a,b)=>orderIndex.get(a.id)-orderIndex.get(b.id))
-    .extent([[40,70],[width-40,height-30]]);
+  /* ---------- Draw nodes ---------- */
+  svg.selectAll(".study")
+    .data(studies)
+    .join("rect")
+    .attr("class","node")
+    .attr("x",180)
+    .attr("y",d=>studyPos.get(d.id).y)
+    .attr("width",40)
+    .attr("height",d=>studyPos.get(d.id).h)
+    .attr("fill",d=>studyColor(d.id));
 
-  const graph = sankey({
-    nodes: nodes.map(d=>({...d})),
-    links: links.map(d=>({...d}))
-  });
+  svg.selectAll(".task")
+    .data(tasks)
+    .join("rect")
+    .attr("class","node")
+    .attr("x",680)
+    .attr("y",d=>taskScale(d.id))
+    .attr("width",40)
+    .attr("height",taskScale.bandwidth())
+    .attr("fill","#0c7f86");
 
-  /* ---------- Headers ---------- */
-  [["Study","study"],["Task","task"],["Category","category"]].forEach(([label,grp])=>{
-    const gNodes = graph.nodes.filter(n=>n.group===grp);
-    const x = d3.mean(gNodes,n=>(n.x0+n.x1)/2);
-    svg.append("text")
-      .attr("class","col-header")
-      .attr("x",x)
-      .attr("y",42)
-      .attr("text-anchor","middle")
-      .text(label);
-  });
-
-  /* ---------- Draw ---------- */
-  svg.append("g")
-    .attr("class","links")
-    .selectAll("path")
-    .data(graph.links.filter(d=>!d._dummy))
-    .join("path")
-    .attr("d",d3.sankeyLinkHorizontal())
-    .attr("stroke",linkColor)
-    .attr("stroke-width",d=>Math.max(1,d.width));
-
-  const node = svg.append("g")
-    .attr("class","nodes")
-    .selectAll("g")
-    .data(graph.nodes.filter(d=>d.group!=="balance"))
-    .join("g");
-
-  node.append("rect")
-    .attr("x",d=>d.x0)
-    .attr("y",d=>d.y0)
-    .attr("width",d=>d.x1-d.x0)
-    .attr("height",d=>d.y1-d.y0)
-    .attr("fill",nodeColor);
-
-  node.append("text")
-    .attr("x",d=>d.x0-10)
-    .attr("y",d=>(d.y0+d.y1)/2)
-    .attr("dy","0.35em")
-    .attr("text-anchor","end")
-    .text(d=>d.id)
-    .filter(d=>d.x0<width/2)
-    .attr("x",d=>d.x1+10)
-    .attr("text-anchor","start");
+  svg.selectAll(".category")
+    .data(categories)
+    .join("rect")
+    .attr("class","node")
+    .attr("x",1180)
+    .attr("y",d=>categoryPos.get(d.id).y)
+    .attr("width",40)
+    .attr("height",d=>categoryPos.get(d.id).h)
+    .attr("fill",d=>categoryColor(d.id));
 
 });
 </script>
