@@ -2,254 +2,296 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Column-normalized Alluvial Diagram</title>
+<title>Column-normalized Alluvial Diagram (with links + labels)</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 
 <style>
-body{
-  margin:0;
-  padding:24px;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-svg{
-  width:1600px;
-  height:900px;
-  border:1px solid #e8e8e8;
-  border-radius:12px;
-  background:#fff;
-}
+  body{
+    margin:0;
+    padding:24px;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color:#111;
+    background:#fff;
+  }
+  h2{ margin:0 0 14px 0; font-size:20px; font-weight:800; }
+  svg{
+    width:1600px;
+    height:900px;
+    border:1px solid #e8e8e8;
+    border-radius:12px;
+    background:#fff;
+    display:block;
+  }
 
-/* links */
-.link{
-  fill:none;
-  stroke-opacity:0.6;
-  mix-blend-mode:multiply;
-}
+  /* Links */
+  .link{
+    fill:none;
+    stroke-opacity:0.55;
+    mix-blend-mode:multiply;
+  }
 
-/* nodes */
-.node{
-  stroke:rgba(0,0,0,0.18);
-  stroke-width:0.6px;
-}
+  /* Nodes */
+  .node{
+    stroke:rgba(0,0,0,0.18);
+    stroke-width:0.6px;
+  }
 
-/* labels */
-.label{
-  font-size:11px;
-  dominant-baseline:middle;
-  pointer-events:none;
-  fill:#111;
-}
+  /* Labels */
+  .label{
+    font-size:11px;
+    dominant-baseline:middle;
+    pointer-events:none;
+    fill:#111;
+  }
 
-.header{
-  font-size:22px;
-  font-weight:900;
-}
+  .header{
+    font-size:22px;
+    font-weight:900;
+    fill:#111;
+  }
 </style>
 </head>
 
 <body>
-<h2>Studies → Tasks → Categories (Normalized Alluvial with Labels)</h2>
+<h2>Studies → Tasks → Categories (Fully Normalized Alluvial)</h2>
 <svg id="viz" viewBox="0 0 1600 900"></svg>
 
 <script>
+/**
+ * This is NOT a true Sankey layout. It is a column-normalized alluvial layout:
+ * - Each column (Study / Task / Category) independently fills the full vertical height.
+ * - Thickness encodes counts (# tasks per study, per category; each task is 1 unit).
+ * - Links are drawn as thick “Sankey-like” ribbons to clearly show connectivity.
+ */
+
 const width = 1600, height = 900;
-const margin = {top:70, bottom:30};
+const margin = { top: 70, bottom: 30 };
 const innerHeight = height - margin.top - margin.bottom;
 
-const X_STUDY = 180,  W = 40;
+// Column positions
+const X_STUDY = 180, W = 40;
 const X_TASK  = 680;
 const X_CAT   = 1180;
 
 const svg = d3.select("#viz");
 
-function curve(x0,y0,x1,y1){
-  const dx = (x1-x0)*0.45;
-  return `M${x0},${y0}C${x0+dx},${y0} ${x1-dx},${y1} ${x1},${y1}`;
+// Smooth cubic curve
+function curve(x0, y0, x1, y1) {
+  const dx = (x1 - x0) * 0.45;
+  return `M${x0},${y0}C${x0 + dx},${y0} ${x1 - dx},${y1} ${x1},${y1}`;
 }
 
 d3.json("modified_visualization_data.json").then(data => {
 
-  /* ---------- classify ---------- */
-  const studies = data.nodes.filter(d=>d.group==="study")
-    .sort((a,b)=>+a.id.replace("Study ","")-+b.id.replace("Study ",""));
-  const tasks = data.nodes.filter(d=>d.group==="task")
-    .sort((a,b)=>+a.id.match(/\d+/)-+b.id.match(/\d+/));
-  const cats = data.nodes.filter(d=>d.group==="category")
-    .sort((a,b)=>+a.id.match(/^\d+/)-+b.id.match(/^\d+/));
+  // ---- Split nodes & enforce order ----
+  const studies = data.nodes
+    .filter(d => d.group === "study")
+    .sort((a,b) => +a.id.replace("Study ", "") - +b.id.replace("Study ", ""));
 
-  /* ---------- links ---------- */
-  const s2t = data.links.filter(l=>l.source.startsWith("Study"));
-  const t2c = data.links.filter(l=>l.target.match(/^\d+\./));
+  const tasks = data.nodes
+    .filter(d => d.group === "task")
+    .sort((a,b) => +a.id.match(/\d+/)[0] - +b.id.match(/\d+/)[0]);
 
-  const studyCount = d3.rollup(s2t,v=>v.length,d=>d.source);
-  const catCount   = d3.rollup(t2c,v=>v.length,d=>d.target);
+  const cats = data.nodes
+    .filter(d => d.group === "category")
+    .sort((a,b) => +a.id.match(/^\d+/)[0] - +b.id.match(/^\d+/)[0]);
 
-  /* ---------- independent vertical scales ---------- */
+  // ---- Extract links from your JSON ----
+  // Study -> Task
+  const s2t = data.links.filter(l => l.source.startsWith("Study ") && l.target.startsWith("T"));
+  // Task -> Category
+  const t2c = data.links.filter(l => l.source.startsWith("T") && /^\d+\.\s/.test(l.target));
+
+  // ---- Count mappings (each task mapping = 1 unit) ----
+  const studyCount = d3.rollup(s2t, v => v.length, d => d.source);
+  const catCount   = d3.rollup(t2c, v => v.length, d => d.target);
+
+  // ---- Independent vertical scales (key to your requirement) ----
   const taskScale = d3.scaleBand()
-    .domain(tasks.map(d=>d.id))
-    .range([margin.top, margin.top+innerHeight]);
+    .domain(tasks.map(d => d.id))
+    .range([margin.top, margin.top + innerHeight])
+    .padding(0);
 
   const studyScale = d3.scaleLinear()
     .domain([0, d3.sum(studyCount.values())])
-    .range([margin.top, margin.top+innerHeight]);
+    .range([margin.top, margin.top + innerHeight]);
 
   const catScale = d3.scaleLinear()
     .domain([0, d3.sum(catCount.values())])
-    .range([margin.top, margin.top+innerHeight]);
+    .range([margin.top, margin.top + innerHeight]);
 
-  /* ---------- block positions ---------- */
+  // ---- Compute block positions so each column fills full height ----
   const studyPos = new Map();
   let acc = 0;
-  studies.forEach(s=>{
-    const n = studyCount.get(s.id)||0;
-    studyPos.set(s.id,{
-      y: studyScale(acc),
-      h: studyScale(acc+n)-studyScale(acc),
-      n
-    });
-    acc+=n;
+  studies.forEach(s => {
+    const n = studyCount.get(s.id) || 0;
+    const y0 = studyScale(acc);
+    const y1 = studyScale(acc + n);
+    studyPos.set(s.id, { y: y0, h: Math.max(0, y1 - y0), n });
+    acc += n;
   });
 
   const catPos = new Map();
-  acc=0;
-  cats.forEach(c=>{
-    const n = catCount.get(c.id)||0;
-    catPos.set(c.id,{
-      y: catScale(acc),
-      h: catScale(acc+n)-catScale(acc),
-      n
-    });
-    acc+=n;
+  acc = 0;
+  cats.forEach(c => {
+    const n = catCount.get(c.id) || 0;
+    const y0 = catScale(acc);
+    const y1 = catScale(acc + n);
+    catPos.set(c.id, { y: y0, h: Math.max(0, y1 - y0), n });
+    acc += n;
   });
 
-  /* ---------- colors ---------- */
+  // ---- Colors: unique per study & category ----
   const studyColor = d3.scaleOrdinal()
-    .domain(studies.map(d=>d.id))
-    .range(d3.quantize(d3.interpolateRainbow, studies.length));
-  const catColor = d3.scaleOrdinal()
-    .domain(cats.map(d=>d.id))
-    .range(d3.quantize(d3.interpolateRainbow, cats.length));
+    .domain(studies.map(d => d.id))
+    .range(d3.quantize(d3.interpolateRainbow, Math.max(3, studies.length)));
 
-  /* ---------- headers ---------- */
+  const catColor = d3.scaleOrdinal()
+    .domain(cats.map(d => d.id))
+    .range(d3.quantize(d3.interpolateRainbow, Math.max(3, cats.length)));
+
+  // ---- Headers ----
   [
-    {x:X_STUDY+W/2,label:"Study"},
-    {x:X_TASK+W/2,label:"Task"},
-    {x:X_CAT+W/2,label:"Category"}
-  ].forEach(h=>{
+    { x: X_STUDY + W/2, label: "Study" },
+    { x: X_TASK  + W/2, label: "Task" },
+    { x: X_CAT   + W/2, label: "Category" }
+  ].forEach(h => {
     svg.append("text")
-      .attr("class","header")
-      .attr("x",h.x)
-      .attr("y",40)
-      .attr("text-anchor","middle")
+      .attr("class", "header")
+      .attr("x", h.x)
+      .attr("y", 40)
+      .attr("text-anchor", "middle")
       .text(h.label);
   });
 
-  /* ---------- offsets for band stacking ---------- */
-  const sOff=new Map(), tInOff=new Map(), tOutOff=new Map(), cOff=new Map();
-  studies.forEach(s=>sOff.set(s.id,0));
-  tasks.forEach(t=>{tInOff.set(t.id,0);tOutOff.set(t.id,0);});
-  cats.forEach(c=>cOff.set(c.id,0));
+  // ---- Offsets for stacking link slices (so links don’t overlap randomly) ----
+  const sOff = new Map();
+  const tInOff = new Map();
+  const tOutOff = new Map();
+  const cOff = new Map();
 
-  const taskIn = d3.group(s2t,d=>d.target);
-  const taskOut = d3.group(t2c,d=>d.source);
+  studies.forEach(s => sOff.set(s.id, 0));
+  tasks.forEach(t => { tInOff.set(t.id, 0); tOutOff.set(t.id, 0); });
+  cats.forEach(c => cOff.set(c.id, 0));
 
-  /* ---------- DRAW LINKS FIRST (important) ---------- */
+  // Group links per task for consistent slicing
+  const taskIn = d3.group(s2t, d => d.target);
+  const taskOut = d3.group(t2c, d => d.source);
 
-  // Study → Task (Sankey-like ribbons)
-  s2t.forEach(l=>{
-    const sp=studyPos.get(l.source);
-    const sh=sp.h/sp.n;
-    const yS=sp.y+sOff.get(l.source)+sh/2;
-    sOff.set(l.source,sOff.get(l.source)+sh);
+  // ---- Draw links FIRST (so nodes sit on top) ----
 
-    const th=taskScale.bandwidth()/((taskIn.get(l.target)||[]).length||1);
-    const yT=taskScale(l.target)+tInOff.get(l.target)+th/2;
-    tInOff.set(l.target,tInOff.get(l.target)+th);
+  // Study -> Task: make it clearly “connected”
+  // Each mapping contributes one slice in the study block.
+  // We enforce a visible minimum thickness for readability.
+  s2t.forEach(l => {
+    const sp = studyPos.get(l.source);
+    if (!sp || sp.n === 0) return;
 
-    svg.append("path")
-      .attr("class","link")
-      .attr("d",curve(X_STUDY+W,yS,X_TASK,yT))
-      .attr("stroke",studyColor(l.source))
-      .attr("stroke-width",Math.max(2, Math.min(sh,th)));
-  });
+    const sliceH = sp.h / sp.n;                 // 1 unit per mapping within the study block
+    const yS = sp.y + sOff.get(l.source) + sliceH/2;
+    sOff.set(l.source, sOff.get(l.source) + sliceH);
 
-  // Task → Category
-  t2c.forEach(l=>{
-    const th=taskScale.bandwidth()/((taskOut.get(l.source)||[]).length||1);
-    const yT=taskScale(l.source)+tOutOff.get(l.source)+th/2;
-    tOutOff.set(l.source,tOutOff.get(l.source)+th);
-
-    const cp=catPos.get(l.target);
-    const ch=cp.h/cp.n;
-    const yC=cp.y+cOff.get(l.target)+ch/2;
-    cOff.set(l.target,cOff.get(l.target)+ch);
+    const inCount = (taskIn.get(l.target) || []).length || 1;
+    const tSliceH = taskScale.bandwidth() / inCount;
+    const yT = taskScale(l.target) + tInOff.get(l.target) + tSliceH/2;
+    tInOff.set(l.target, tInOff.get(l.target) + tSliceH);
 
     svg.append("path")
-      .attr("class","link")
-      .attr("d",curve(X_TASK+W,yT,X_CAT,yC))
-      .attr("stroke",catColor(l.target))
-      .attr("stroke-width",Math.max(2, Math.min(th,ch)));
+      .attr("class", "link")
+      .attr("d", curve(X_STUDY + W, yS, X_TASK, yT))
+      .attr("stroke", studyColor(l.source))
+      .attr("stroke-width", Math.max(3, Math.min(sliceH, tSliceH) * 0.9));
   });
 
-  /* ---------- DRAW NODES ---------- */
+  // Task -> Category
+  t2c.forEach(l => {
+    const outCount = (taskOut.get(l.source) || []).length || 1;
+    const tSliceH = taskScale.bandwidth() / outCount;
+    const yT = taskScale(l.source) + tOutOff.get(l.source) + tSliceH/2;
+    tOutOff.set(l.source, tOutOff.get(l.source) + tSliceH);
 
-  // Study blocks
-  svg.selectAll(".study")
-    .data(studies).join("rect")
-    .attr("class","node")
-    .attr("x",X_STUDY)
-    .attr("y",d=>studyPos.get(d.id).y)
-    .attr("width",W)
-    .attr("height",d=>studyPos.get(d.id).h)
-    .attr("fill",d=>studyColor(d.id));
+    const cp = catPos.get(l.target);
+    if (!cp || cp.n === 0) return;
 
-  // Task blocks
-  svg.selectAll(".task")
-    .data(tasks).join("rect")
-    .attr("class","node")
-    .attr("x",X_TASK)
-    .attr("y",d=>taskScale(d.id))
-    .attr("width",W)
-    .attr("height",taskScale.bandwidth())
-    .attr("fill","#0c7f86");
+    const sliceH = cp.h / cp.n;
+    const yC = cp.y + cOff.get(l.target) + sliceH/2;
+    cOff.set(l.target, cOff.get(l.target) + sliceH);
 
-  // Category blocks
-  svg.selectAll(".cat")
-    .data(cats).join("rect")
-    .attr("class","node")
-    .attr("x",X_CAT)
-    .attr("y",d=>catPos.get(d.id).y)
-    .attr("width",W)
-    .attr("height",d=>catPos.get(d.id).h)
-    .attr("fill",d=>catColor(d.id));
+    svg.append("path")
+      .attr("class", "link")
+      .attr("d", curve(X_TASK + W, yT, X_CAT, yC))
+      .attr("stroke", catColor(l.target))
+      .attr("stroke-width", Math.max(3, Math.min(sliceH, tSliceH) * 0.9));
+  });
 
-  /* ---------- NODE LABELS ---------- */
+  // ---- Draw nodes ----
+  // Studies
+  svg.selectAll(".study-node")
+    .data(studies)
+    .join("rect")
+    .attr("class", "node study-node")
+    .attr("x", X_STUDY)
+    .attr("y", d => (studyPos.get(d.id)?.y ?? margin.top))
+    .attr("width", W)
+    .attr("height", d => (studyPos.get(d.id)?.h ?? 0))
+    .attr("fill", d => studyColor(d.id));
 
+  // Tasks
+  svg.selectAll(".task-node")
+    .data(tasks)
+    .join("rect")
+    .attr("class", "node task-node")
+    .attr("x", X_TASK)
+    .attr("y", d => taskScale(d.id))
+    .attr("width", W)
+    .attr("height", taskScale.bandwidth())
+    .attr("fill", "#0c7f86");
+
+  // Categories
+  svg.selectAll(".cat-node")
+    .data(cats)
+    .join("rect")
+    .attr("class", "node cat-node")
+    .attr("x", X_CAT)
+    .attr("y", d => (catPos.get(d.id)?.y ?? margin.top))
+    .attr("width", W)
+    .attr("height", d => (catPos.get(d.id)?.h ?? 0))
+    .attr("fill", d => catColor(d.id));
+
+  // ---- Labels (node titles) ----
   // Study labels (left)
   svg.selectAll(".study-label")
-    .data(studies).join("text")
-    .attr("class","label")
-    .attr("x",X_STUDY-10)
-    .attr("y",d=>studyPos.get(d.id).y + studyPos.get(d.id).h/2)
-    .attr("text-anchor","end")
-    .text(d=>d.id);
+    .data(studies)
+    .join("text")
+    .attr("class", "label study-label")
+    .attr("x", X_STUDY - 10)
+    .attr("y", d => (studyPos.get(d.id)?.y ?? margin.top) + (studyPos.get(d.id)?.h ?? 0) / 2)
+    .attr("text-anchor", "end")
+    .text(d => d.id);
 
-  // Task labels (center-right)
+  // Task labels (right of task column)
   svg.selectAll(".task-label")
-    .data(tasks).join("text")
-    .attr("class","label")
-    .attr("x",X_TASK+W+6)
-    .attr("y",d=>taskScale(d.id)+taskScale.bandwidth()/2)
-    .text(d=>d.id);
+    .data(tasks)
+    .join("text")
+    .attr("class", "label task-label")
+    .attr("x", X_TASK + W + 8)
+    .attr("y", d => taskScale(d.id) + taskScale.bandwidth()/2)
+    .attr("text-anchor", "start")
+    .text(d => d.id);
 
   // Category labels (right)
   svg.selectAll(".cat-label")
-    .data(cats).join("text")
-    .attr("class","label")
-    .attr("x",X_CAT+W+10)
-    .attr("y",d=>catPos.get(d.id).y + catPos.get(d.id).h/2)
-    .text(d=>d.id);
+    .data(cats)
+    .join("text")
+    .attr("class", "label cat-label")
+    .attr("x", X_CAT + W + 10)
+    .attr("y", d => (catPos.get(d.id)?.y ?? margin.top) + (catPos.get(d.id)?.h ?? 0) / 2)
+    .attr("text-anchor", "start")
+    .text(d => d.id);
 
+}).catch(err => {
+  console.error(err);
+  alert("Could not load modified_visualization_data.json. Run a local server: python -m http.server");
 });
 </script>
 </body>
