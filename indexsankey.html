@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Sankey Diagram</title>
+<title>Column-normalized Alluvial Diagram</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 
 <style>
@@ -19,16 +19,18 @@ svg{
   background:#fff;
 }
 .node{
-  stroke:#000;
-  stroke-width:0.4px;
+  stroke:rgba(0,0,0,0.18);
+  stroke-width:0.6px;
 }
 .link{
   fill:none;
-  stroke-opacity:0.35;
+  stroke-opacity:0.45;
+  mix-blend-mode:multiply;
 }
 .label{
   font-size:11px;
   dominant-baseline:middle;
+  pointer-events:none;
 }
 .header{
   font-size:22px;
@@ -38,7 +40,7 @@ svg{
 </head>
 
 <body>
-<h2>Studies → Tasks → Categories  </h2>
+<h2>Studies → Tasks → Categories (Fully Normalized Alluvial)</h2>
 <svg id="viz" viewBox="0 0 1600 900"></svg>
 
 <script>
@@ -46,124 +48,166 @@ const width = 1600, height = 900;
 const margin = {top:70, bottom:30};
 const innerHeight = height - margin.top - margin.bottom;
 
+const X_STUDY = 180,  W = 40;
+const X_TASK  = 680;
+const X_CAT   = 1180;
+
 const svg = d3.select("#viz");
+
+function curve(x0,y0,x1,y1){
+  const dx = (x1-x0)*0.45;
+  return `M${x0},${y0}C${x0+dx},${y0} ${x1-dx},${y1} ${x1},${y1}`;
+}
 
 d3.json("modified_visualization_data.json").then(data => {
 
-  /* ---------- Helpers ---------- */
-  const isStudy = d => d.group === "study";
-  const isTask = d => d.group === "task";
-  const isCategory = d => d.group === "category";
-
-  /* ---------- Sort nodes ---------- */
-  const studies = data.nodes.filter(isStudy)
+  /* ---------- classify ---------- */
+  const studies = data.nodes.filter(d=>d.group==="study")
     .sort((a,b)=>+a.id.replace("Study ","")-+b.id.replace("Study ",""));
-
-  const tasks = data.nodes.filter(isTask)
+  const tasks = data.nodes.filter(d=>d.group==="task")
     .sort((a,b)=>+a.id.match(/\d+/)-+b.id.match(/\d+/));
-
-  const categories = data.nodes.filter(isCategory)
+  const cats = data.nodes.filter(d=>d.group==="category")
     .sort((a,b)=>+a.id.match(/^\d+/)-+b.id.match(/^\d+/));
 
-  /* ---------- Task connections ---------- */
-  const studyTask = data.links.filter(l=>l.source.startsWith("Study"));
-  const taskCategory = data.links.filter(l=>l.target.match(/^\d+\./));
+  /* ---------- links (task = 1 unit) ---------- */
+  const s2t = data.links.filter(l=>l.source.startsWith("Study"));
+  const t2c = data.links.filter(l=>l.target.match(/^\d+\./));
 
-  const studyCounts = d3.rollup(studyTask, v=>v.length, d=>d.source);
-  const categoryCounts = d3.rollup(taskCategory, v=>v.length, d=>d.target);
+  const studyCount = d3.rollup(s2t,v=>v.length,d=>d.source);
+  const catCount   = d3.rollup(t2c,v=>v.length,d=>d.target);
 
-  /* ---------- Vertical scales (INDEPENDENT) ---------- */
+  /* ---------- scales (INDEPENDENT) ---------- */
   const taskScale = d3.scaleBand()
     .domain(tasks.map(d=>d.id))
-    .range([margin.top, margin.top + innerHeight])
-    .padding(0);
+    .range([margin.top, margin.top+innerHeight]);
 
   const studyScale = d3.scaleLinear()
-    .domain([0, d3.sum(studyCounts.values())])
-    .range([margin.top, margin.top + innerHeight]);
+    .domain([0, d3.sum(studyCount.values())])
+    .range([margin.top, margin.top+innerHeight]);
 
-  const categoryScale = d3.scaleLinear()
-    .domain([0, d3.sum(categoryCounts.values())])
-    .range([margin.top, margin.top + innerHeight]);
+  const catScale = d3.scaleLinear()
+    .domain([0, d3.sum(catCount.values())])
+    .range([margin.top, margin.top+innerHeight]);
 
-  /* ---------- Layout positions ---------- */
+  /* ---------- layout blocks ---------- */
   const studyPos = new Map();
   let acc = 0;
   studies.forEach(s=>{
-    const h = studyCounts.get(s.id) || 0;
-    studyPos.set(s.id, {
+    const h = studyCount.get(s.id)||0;
+    studyPos.set(s.id,{
       y: studyScale(acc),
-      h: studyScale(acc + h) - studyScale(acc)
+      h: studyScale(acc+h)-studyScale(acc),
+      n:h
     });
-    acc += h;
+    acc+=h;
   });
 
-  const categoryPos = new Map();
-  acc = 0;
-  categories.forEach(c=>{
-    const h = categoryCounts.get(c.id) || 0;
-    categoryPos.set(c.id, {
-      y: categoryScale(acc),
-      h: categoryScale(acc + h) - categoryScale(acc)
+  const catPos = new Map();
+  acc=0;
+  cats.forEach(c=>{
+    const h = catCount.get(c.id)||0;
+    catPos.set(c.id,{
+      y: catScale(acc),
+      h: catScale(acc+h)-catScale(acc),
+      n:h
     });
-    acc += h;
+    acc+=h;
   });
 
-  /* ---------- Colors ---------- */
+  /* ---------- colors ---------- */
   const studyColor = d3.scaleOrdinal()
     .domain(studies.map(d=>d.id))
     .range(d3.quantize(d3.interpolateRainbow, studies.length));
+  const catColor = d3.scaleOrdinal()
+    .domain(cats.map(d=>d.id))
+    .range(d3.quantize(d3.interpolateRainbow, cats.length));
 
-  const categoryColor = d3.scaleOrdinal()
-    .domain(categories.map(d=>d.id))
-    .range(d3.quantize(d3.interpolateRainbow, categories.length));
+  /* ---------- headers ---------- */
+  [
+    {x:X_STUDY+W/2,label:"Study"},
+    {x:X_TASK+W/2,label:"Task"},
+    {x:X_CAT+W/2,label:"Category"}
+  ].forEach(h=>{
+    svg.append("text")
+      .attr("class","header")
+      .attr("x",h.x)
+      .attr("y",40)
+      .attr("text-anchor","middle")
+      .text(h.label);
+  });
 
-  /* ---------- Draw headers ---------- */
-  const cols = [
-    {x:200, label:"Study"},
-    {x:700, label:"Task"},
-    {x:1200, label:"Category"}
-  ];
+  /* ---------- offsets for band stacking ---------- */
+  const sOff=new Map(), tInOff=new Map(), tOutOff=new Map(), cOff=new Map();
+  studies.forEach(s=>sOff.set(s.id,0));
+  tasks.forEach(t=>{tInOff.set(t.id,0);tOutOff.set(t.id,0);});
+  cats.forEach(c=>cOff.set(c.id,0));
 
-  svg.selectAll(".header")
-    .data(cols)
-    .join("text")
-    .attr("class","header")
-    .attr("x",d=>d.x)
-    .attr("y",40)
-    .attr("text-anchor","middle")
-    .text(d=>d.label);
+  const taskIn = d3.group(s2t,d=>d.target);
+  const taskOut = d3.group(t2c,d=>d.source);
 
-  /* ---------- Draw nodes ---------- */
+  /* ---------- draw Study → Task ---------- */
+  s2t.forEach(l=>{
+    const sp=studyPos.get(l.source);
+    const sh=sp.h/sp.n;
+    const yS=sp.y+sOff.get(l.source)+sh/2;
+    sOff.set(l.source,sOff.get(l.source)+sh);
+
+    const th=taskScale.bandwidth()/((taskIn.get(l.target)||[]).length||1);
+    const yT=taskScale(l.target)+tInOff.get(l.target)+th/2;
+    tInOff.set(l.target,tInOff.get(l.target)+th);
+
+    svg.append("path")
+      .attr("class","link")
+      .attr("d",curve(X_STUDY+W,yS,X_TASK,yT))
+      .attr("stroke",studyColor(l.source))
+      .attr("stroke-width",Math.min(sh,th));
+  });
+
+  /* ---------- draw Task → Category ---------- */
+  t2c.forEach(l=>{
+    const th=taskScale.bandwidth()/((taskOut.get(l.source)||[]).length||1);
+    const yT=taskScale(l.source)+tOutOff.get(l.source)+th/2;
+    tOutOff.set(l.source,tOutOff.get(l.source)+th);
+
+    const cp=catPos.get(l.target);
+    const ch=cp.h/cp.n;
+    const yC=cp.y+cOff.get(l.target)+ch/2;
+    cOff.set(l.target,cOff.get(l.target)+ch);
+
+    svg.append("path")
+      .attr("class","link")
+      .attr("d",curve(X_TASK+W,yT,X_CAT,yC))
+      .attr("stroke",catColor(l.target))
+      .attr("stroke-width",Math.min(th,ch));
+  });
+
+  /* ---------- draw nodes ---------- */
   svg.selectAll(".study")
-    .data(studies)
-    .join("rect")
+    .data(studies).join("rect")
     .attr("class","node")
-    .attr("x",180)
+    .attr("x",X_STUDY)
     .attr("y",d=>studyPos.get(d.id).y)
-    .attr("width",40)
+    .attr("width",W)
     .attr("height",d=>studyPos.get(d.id).h)
     .attr("fill",d=>studyColor(d.id));
 
   svg.selectAll(".task")
-    .data(tasks)
-    .join("rect")
+    .data(tasks).join("rect")
     .attr("class","node")
-    .attr("x",680)
+    .attr("x",X_TASK)
     .attr("y",d=>taskScale(d.id))
-    .attr("width",40)
+    .attr("width",W)
     .attr("height",taskScale.bandwidth())
     .attr("fill","#0c7f86");
 
-  svg.selectAll(".category")
-    .data(categories)
-    .join("rect")
+  svg.selectAll(".cat")
+    .data(cats).join("rect")
     .attr("class","node")
-    .attr("x",1180)
-    .attr("y",d=>categoryPos.get(d.id).y)
-    .attr("width",40)
-    .attr("height",d=>categoryPos.get(d.id).h)
-    .attr("fill",d=>categoryColor(d.id));
+    .attr("x",X_CAT)
+    .attr("y",d=>catPos.get(d.id).y)
+    .attr("width",W)
+    .attr("height",d=>catPos.get(d.id).h)
+    .attr("fill",d=>catColor(d.id));
 
 });
 </script>
