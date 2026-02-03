@@ -11,26 +11,29 @@
 
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: "Helvetica Neue", Arial, sans-serif;
     }
 
     svg {
-      border: 1px solid #ddd;
+      border: 1px solid #e0e0e0;
     }
 
     .link {
       fill: none;
-      stroke: #999;
       stroke-opacity: 0.35;
+      mix-blend-mode: multiply;
     }
 
     .node rect {
-      stroke: #000;
-      stroke-width: 0.5px;
+      stroke: #333;
+      stroke-width: 0.4px;
+      rx: 2;
+      ry: 2;
     }
 
     .node text {
       font-size: 11px;
+      fill: #222;
       pointer-events: none;
     }
   </style>
@@ -47,35 +50,40 @@ const height = 900;
 
 const svg = d3.select("svg");
 
-// Color by group
-const color = d3.scaleOrdinal()
+// 🎨 Color scheme by node group (academic-friendly)
+const nodeColor = d3.scaleOrdinal()
   .domain(["study", "task", "category"])
-  .range(["#4C78A8", "#F58518", "#54A24B"]);
+  .range([
+    "#4C78A8", // study – blue
+    "#F58518", // task – orange
+    "#54A24B"  // category – green
+  ]);
 
-// Load your JSON
+// Load JSON
 d3.json("modified_visualization_data.json").then(data => {
 
   const sankey = d3.sankey()
-    .nodeId(d => d.id)   // 🔑 IMPORTANT: use string IDs
+    .nodeId(d => d.id)
     .nodeWidth(18)
     .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 6]]);
 
   const graph = sankey({
-    nodes: data.nodes.map(d => Object.assign({}, d)),
-    links: data.links.map(d => Object.assign({}, d))
+    nodes: data.nodes.map(d => ({ ...d })),
+    links: data.links.map(d => ({ ...d }))
   });
 
-  // Draw links
+  // Links (inherit color from source node)
   svg.append("g")
     .selectAll(".link")
     .data(graph.links)
     .join("path")
     .attr("class", "link")
     .attr("d", d3.sankeyLinkHorizontal())
+    .attr("stroke", d => nodeColor(d.source.group))
     .attr("stroke-width", d => Math.max(1, d.width));
 
-  // Draw nodes
+  // Nodes
   const node = svg.append("g")
     .selectAll(".node")
     .data(graph.nodes)
@@ -87,7 +95,7 @@ d3.json("modified_visualization_data.json").then(data => {
     .attr("y", d => d.y0)
     .attr("height", d => d.y1 - d.y0)
     .attr("width", d => d.x1 - d.x0)
-    .attr("fill", d => color(d.group));
+    .attr("fill", d => nodeColor(d.group));
 
   // Labels
   node.append("text")
