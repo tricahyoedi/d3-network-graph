@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Integrated Hierarchy Sunburst</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #fafafa;
+            margin: 0;
+        }
+        #container { position: relative; margin-top: 20px; }
+        #explanation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 180px;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #frequency { font-size: 2.2em; display: block; font-weight: bold; color: #333; }
+        #task-name { font-size: 0.85em; display: block; color: #555; margin-top: 5px; font-weight: 600; text-transform: uppercase; line-height: 1.2;}
+        #group-path { font-size: 0.75em; display: block; color: #888; margin-top: 5px; font-style: italic; }
+        
+        path { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+        path:hover { opacity: 0.85; stroke-width: 2.5px; }
+        
+        h1 { color: #2c3e50; margin-top: 40px; margin-bottom: 5px; }
+        p { color: #7f8c8d; font-size: 14px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Visualisation Tasks Taxonomy</h1>
+    <p>Connectivity sub-tasks are integrated within the main circle.</p>
+    
+    <div id="container">
+        <div id="explanation">
+            <span id="frequency"></span>
+            <span id="task-name">Hover to explore</span>
+            <span id="group-path"></span>
+        </div>
+        <div id="chart"></div>
+    </div>
+
+    <script>
+        const width = 800;
+        const radius = width / 2;
+
+        const colorScale = d3.scaleOrdinal()
+            .domain(["Topology-based", "Attribute-based", "Browsing", "Overview"])
+            .range(["#4e79a7", "#f28e2c", "#e15759", "#76b7b2"]);
+
+        d3.json("4.json").then(data => {
+            const root = d3.hierarchy(data)
+                .sum(d => d.value)
+                .sort((a, b) => b.value - a.value);
+
+            // Determine depth (HL -> LL -> Specific Task = 3 levels + root)
+            const maxDepth = root.height; 
+            
+            // Partition layout stretches leaf nodes to the outer boundary automatically
+            d3.partition().size([2 * Math.PI, maxDepth + 1])(root);
+
+            const svg = d3.select("#chart").append("svg")
+                .attr("width", width)
+                .attr("height", width)
+                .append("g")
+                .attr("transform", `translate(${width/2},${width/2})`);
+
+            const arc = d3.arc()
+                .startAngle(d => d.x0)
+                .endAngle(d => d.x1)
+                .padAngle(0.008)
+                .padRadius(radius / (maxDepth + 1))
+                .innerRadius(d => d.y0 * (radius / (maxDepth + 1)))
+                .outerRadius(d => d.y1 * (radius / (maxDepth + 1)) - 1);
+
+            svg.selectAll("path")
+                .data(root.descendants().slice(1)) // Skip root
+                .join("path")
+                .attr("d", arc)
+                .style("fill", d => {
+                    let p = d;
+                    while (p.depth > 1) p = p.parent;
+                    return colorScale(p.data.name);
+                })
+                .style("opacity", d => 1.05 - d.depth * 0.15)
+                .on("mouseover", (event, d) => {
+                    d3.select("#frequency").text(d.value);
+                    d3.select("#task-name").text(d.data.name);
+                    
+                    // Show trail (e.g., Topology > Connectivity > Clusters)
+                    const sequence = d.ancestors().reverse().slice(1);
+                    d3.select("#group-path").text(sequence.map(n => n.data.name).join(" > "));
+
+                    // Dim others
+                    d3.selectAll("path").style("opacity", 0.1);
+                    svg.selectAll("path")
+                       .filter(node => d.ancestors().includes(node))
+                       .style("opacity", node => 1.05 - node.depth * 0.15);
+                })
+                .on("mouseleave", () => {
+                    d3.select("#frequency").text("");
+                    d3.select("#task-name").text("Hover to explore");
+                    d3.select("#group-path").text("");
+                    d3.selectAll("path").style("opacity", node => 1.05 - node.depth * 0.15);
+                });
+
+        }).catch(err => console.error("Error:", err));
+    </script>
+</body>
+</html>
