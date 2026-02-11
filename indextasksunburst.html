@@ -61,7 +61,7 @@
             .innerRadius(d => d.y0 * (radius / 3))
             .outerRadius(d => d.y1 * (radius / 3) - 1);
 
-        d3.json("datatask.json").then(data => {
+        d3.json("datatasksunburst.json").then(data => {
             const root = d3.hierarchy(data)
                 .sum(d => d.value)
                 .sort((a, b) => b.value - a.value);
