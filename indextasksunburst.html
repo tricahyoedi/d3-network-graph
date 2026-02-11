@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualisation Tasks - Sunburst</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; }
+        path { stroke: #fff; }
+        .tooltip { position: absolute; padding: 10px; background: rgba(0,0,0,0.8); color: #fff; border-radius: 5px; opacity: 0; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <h2>Hierarchical Sunburst (Nested Pie Chart)</h2>
+    <div id="chart"></div>
+    <div class="tooltip" id="tooltip"></div>
+    <script>
+        const width = 700, radius = width / 6;
+        const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, 5));
+        const arc = d3.arc().startAngle(d => d.x0).endAngle(d => d.x1).padAngle(0.005).padRadius(radius * 1.5).innerRadius(d => d.y0 * radius).outerRadius(d => d.y1 * radius - 1);
+        d3.json("datatasksunburst.json").then(data => {
+            const root = d3.partition().size([2 * Math.PI, root.height + 1])(d3.hierarchy(data).sum(d => d.value));
+            const svg = d3.select("#chart").append("svg").attr("width", width).attr("height", width).append("g").attr("transform", `translate(${width/2},${width/2})`);
+            svg.selectAll("path").data(root.descendants().slice(1)).join("path")
+               .attr("fill", d => { while (d.depth > 1) d = d.parent; return color(d.data.name); })
+               .attr("d", arc)
+               .on("mouseover", (e, d) => d3.select("#tooltip").style("opacity", 1).html(`<strong>${d.data.name}</strong><br>Value: ${d.value}`))
+               .on("mousemove", e => d3.select("#tooltip").style("left", (e.pageX+10)+"px").style("top", (e.pageY-10)+"px"))
+               .on("mouseout", () => d3.select("#tooltip").style("opacity", 0));
+        });
+    </script>
+</body>
+</html>
