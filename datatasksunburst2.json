@@ -1,0 +1,71 @@
+{
+  "name": "Tasks",
+  "children": [
+    {
+      "name": "Topology-based",
+      "children": [
+        {
+          "name": "Adjacency",
+          "children": [{ "name": "Adjacency Task", "value": 26 }]
+        },
+        {
+          "name": "Accessibility",
+          "children": [{ "name": "Accessibility Task", "value": 21 }]
+        },
+        {
+          "name": "Common connection",
+          "children": [{ "name": "Common connection Task", "value": 12 }]
+        },
+        {
+          "name": "Connectivity",
+          "children": [
+            { "name": "Shortest Path", "value": 1 },
+            { "name": "Clusters", "value": 18 },
+            { "name": "Connected Components", "value": 5 },
+            { "name": "Bridges", "value": 2 },
+            { "name": "Articulation Points", "value": 5 }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Attribute-based",
+      "children": [
+        {
+          "name": "On the node",
+          "children": [{ "name": "Attribute - Node", "value": 20 }]
+        },
+        {
+          "name": "On the links",
+          "children": [{ "name": "Attribute - Links", "value": 16 }]
+        }
+      ]
+    },
+    {
+      "name": "Browsing",
+      "children": [
+        {
+          "name": "Follow path",
+          "children": [{ "name": "Browsing - Follow path", "value": 16 }]
+        },
+        {
+          "name": "Revisit",
+          "children": [{ "name": "Browsing - Revisit", "value": 6 }]
+        }
+      ]
+    },
+    {
+      "name": "Overview",
+      "children": [
+        {
+          "name": "Finding Outliers",
+          "children": [{ "name": "Overview - Outliers", "value": 18 }]
+        },
+        {
+          "name": "Finding Patterns",
+          "children": [{ "name": "Overview - Patterns", "value": 24 }]
+        }
+      ]
+    }
+  ]
+}
