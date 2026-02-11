@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualisation Tasks - Optimized Sunburst</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #ffffff;
+            margin: 0;
+        }
+        #container { position: relative; margin-top: 20px; }
+        #explanation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160px;
+            text-align: center;
+            pointer-events: none;
+        }
+        #percentage { font-size: 2.2em; display: block; font-weight: bold; color: #333; }
+        #task-name { font-size: 0.9em; display: block; color: #666; margin-top: 5px; font-weight: 500; }
+        path { stroke: #fff; stroke-width: 1.5px; cursor: pointer; transition: opacity 0.2s; }
+        path:hover { opacity: 0.75; }
+        h1 { color: #2c3e50; margin-top: 40px; margin-bottom: 5px; }
+        p { color: #7f8c8d; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>Refined Task Hierarchy</h1>
+    <p>Connectivity remains detailed; other groups are simplified into single segments.</p>
+    
+    <div id="container">
+        <div id="explanation">
+            <span id="percentage"></span>
+            <span id="task-name">Hover to explore</span>
+        </div>
+        <div id="chart"></div>
+    </div>
+
+    <script>
+        const width = 750;
+        const radius = width / 2;
+
+        // Colors mapped to High Level groups
+        const colorScale = d3.scaleOrdinal()
+            .domain(["Topology-based", "Attribute-based", "Browsing", "Overview"])
+            .range(["#4e79a7", "#f28e2c", "#e15759", "#76b7b2"]);
+
+        // Arc generator
+        const arc = d3.arc()
+            .startAngle(d => d.x0)
+            .endAngle(d => d.x1)
+            .padAngle(0.006)
+            .padRadius(radius / 3)
+            .innerRadius(d => d.y0 * (radius / 3))
+            .outerRadius(d => d.y1 * (radius / 3) - 1);
+
+        d3.json("datatasksunburst3.json").then(data => {
+            const root = d3.hierarchy(data)
+                .sum(d => d.value)
+                .sort((a, b) => b.value - a.value);
+
+            // Create partition layout
+            // We use root.height + 1 to calculate level thickness automatically
+            d3.partition().size([2 * Math.PI, root.height + 1])(root);
+
+            const svg = d3.select("#chart").append("svg")
+                .attr("width", width)
+                .attr("height", width)
+                .append("g")
+                .attr("transform", `translate(${width/2},${width/2})`);
+
+            const path = svg.selectAll("path")
+                .data(root.descendants().slice(1)) // Skip root node
+                .join("path")
+                .attr("d", arc)
+                .style("fill", d => {
+                    // Find the high-level ancestor to determine color
+                    let p = d;
+                    while (p.depth > 1) p = p.parent;
+                    return colorScale(p.data.name);
+                })
+                .style("opacity", d => {
+                    // Slight variation in opacity based on depth to distinguish rings
+                    return 1 - (d.depth - 1) * 0.15;
+                })
+                .on("mouseover", (event, d) => {
+                    d3.select("#percentage").text(d.value);
+                    d3.select("#task-name").text(d.data.name);
+                    // Highlight trail
+                    d3.selectAll("path").style("opacity", 0.3);
+                    const ancestors = d.ancestors().slice(0, -1);
+                    svg.selectAll("path")
+                       .filter(node => ancestors.includes(node))
+                       .style("opacity", 1);
+                })
+                .on("mouseleave", () => {
+                    d3.select("#percentage").text("");
+                    d3.select("#task-name").text("Hover to explore");
+                    d3.selectAll("path").style("opacity", d => 1 - (d.depth - 1) * 0.15);
+                });
+
+        }).catch(err => console.error("Could not load datatask.json", err));
+    </script>
+</body>
+</html>
