@@ -1,71 +1,71 @@
 {
-  "name": "Tasks",
-  "children": [
-    {
-      "name": "Topology-based",
-      "children": [
+    "name": "Visualisation Tasks",
+    "children": [
         {
-          "name": "Adjacency",
-          "children": [{ "name": "Adjacency Task", "value": 26 }]
+            "name": "Topology-based",
+            "children": [
+                {
+                    "name": "Adjacency",
+                    "children": [{ "name": "Topology-based Task - Adjacency", "value": 26 }]
+                },
+                {
+                    "name": "Accessibility",
+                    "children": [{ "name": "Topology-based Task - Accessibility", "value": 21 }]
+                },
+                {
+                    "name": "Common connection",
+                    "children": [{ "name": "Topology-based Task - Common connection", "value": 12 }]
+                },
+                {
+                    "name": "Connectivity",
+                    "children": [
+                        { "name": "Find Shortest Path", "value": 1 },
+                        { "name": "Find Clusters", "value": 18 },
+                        { "name": "Find Connected Components", "value": 5 },
+                        { "name": "Find Bridges", "value": 2 },
+                        { "name": "Find Articulation Points", "value": 5 }
+                    ]
+                }
+            ]
         },
         {
-          "name": "Accessibility",
-          "children": [{ "name": "Accessibility Task", "value": 21 }]
+            "name": "Attribute-based",
+            "children": [
+                {
+                    "name": "On the node",
+                    "children": [{ "name": "Attribute-based task - On the node", "value": 20 }]
+                },
+                {
+                    "name": "On the links",
+                    "children": [{ "name": "Attribute-based task - On the links", "value": 16 }]
+                }
+            ]
         },
         {
-          "name": "Common connection",
-          "children": [{ "name": "Common connection Task", "value": 12 }]
+            "name": "Browsing",
+            "children": [
+                {
+                    "name": "Follow path",
+                    "children": [{ "name": "Browsing tasks - Follow path", "value": 16 }]
+                },
+                {
+                    "name": "Revisit",
+                    "children": [{ "name": "Browsing tasks - Revisit", "value": 6 }]
+                }
+            ]
         },
         {
-          "name": "Connectivity",
-          "children": [
-            { "name": "Shortest Path", "value": 1 },
-            { "name": "Clusters", "value": 18 },
-            { "name": "Connected Components", "value": 5 },
-            { "name": "Bridges", "value": 2 },
-            { "name": "Articulation Points", "value": 5 }
-          ]
+            "name": "Overview",
+            "children": [
+                {
+                    "name": "Finding Outliers",
+                    "children": [{ "name": "Overview tasks - Finding Outliers", "value": 18 }]
+                },
+                {
+                    "name": "Finding Patterns",
+                    "children": [{ "name": "Overview tasks - Finding Patterns", "value": 24 }]
+                }
+            ]
         }
-      ]
-    },
-    {
-      "name": "Attribute-based",
-      "children": [
-        {
-          "name": "On the node",
-          "children": [{ "name": "Attribute - Node", "value": 20 }]
-        },
-        {
-          "name": "On the links",
-          "children": [{ "name": "Attribute - Links", "value": 16 }]
-        }
-      ]
-    },
-    {
-      "name": "Browsing",
-      "children": [
-        {
-          "name": "Follow path",
-          "children": [{ "name": "Browsing - Follow path", "value": 16 }]
-        },
-        {
-          "name": "Revisit",
-          "children": [{ "name": "Browsing - Revisit", "value": 6 }]
-        }
-      ]
-    },
-    {
-      "name": "Overview",
-      "children": [
-        {
-          "name": "Finding Outliers",
-          "children": [{ "name": "Overview - Outliers", "value": 18 }]
-        },
-        {
-          "name": "Finding Patterns",
-          "children": [{ "name": "Overview - Patterns", "value": 24 }]
-        }
-      ]
-    }
-  ]
+    ]
 }
