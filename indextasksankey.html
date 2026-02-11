@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visualisation Tasks - Sankey Diagram</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .node rect { fill-opacity: .9; shape-rendering: crispEdges; stroke: #fff; }
+        .node text { pointer-events: none; font-size: 11px; }
+        .link { fill: none; stroke: #000; stroke-opacity: .15; }
+        .link:hover { stroke-opacity: .4; }
+        .tooltip { position: absolute; padding: 8px; background: #333; color: #fff; border-radius: 4px; opacity: 0; pointer-events: none; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h2 style="text-align:center">Frequency Flow: High-Level → Low-Level → Task</h2>
+    <div id="chart"></div>
+    <div class="tooltip" id="tooltip"></div>
+    <script>
+        const margin = {top: 10, right: 10, bottom: 10, left: 10},
+              width = 1000 - margin.left - margin.right, height = 700 - margin.top - margin.bottom;
+        const svg = d3.select("#chart").append("svg").attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+        const tooltip = d3.select("#tooltip");
+        const color = d3.scaleOrdinal(d3.schemeTableau10);
+        const sankey = d3.sankey().nodeWidth(30).nodePadding(20).size([width, height]);
+        d3.json("datatask1.json").then(data => {
+            const {nodes, links} = sankey(data);
+            svg.append("g").selectAll("path").data(links).join("path").attr("class", "link").attr("d", d3.sankeyLinkHorizontal()).attr("stroke-width", d => Math.max(1, d.width))
+               .on("mouseover", (e, d) => { tooltip.style("opacity", 1).html(`${d.source.name} → ${d.target.name}<br>Value: ${d.value}`); })
+               .on("mousemove", e => tooltip.style("left", (e.pageX + 10) + "px").style("top", (e.pageY - 10) + "px"))
+               .on("mouseout", () => tooltip.style("opacity", 0));
+            const node = svg.append("g").selectAll(".node").data(nodes).join("g").attr("class", "node").attr("transform", d => `translate(${d.x0},${d.y0})`);
+            node.append("rect").attr("height", d => d.y1 - d.y0).attr("width", d => d.x1 - d.x0).attr("fill", d => color(d.name)).on("mouseover", (e, d) => { tooltip.style("opacity", 1).html(`${d.name}<br>Total: ${d.value}`); });
+            node.append("text").attr("x", d => d.x0 < width / 2 ? (d.x1 - d.x0) + 6 : -6).attr("y", d => (d.y1 - d.y0) / 2).attr("dy", "0.35em").attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end").text(d => d.name);
+        });
+    </script>
+</body>
+</html>
