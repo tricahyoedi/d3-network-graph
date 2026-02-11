@@ -1,71 +1,99 @@
 [
     {
         "frequency": 26,
+        "highlevelcode": 1,
+        "lowlevelcode": 1,
         "taskcode": 1,
         "description": "Topology-based Task - Adjacency "
     },
     {
         "frequency": 21,
+        "highlevelcode": 1,
+        "lowlevelcode": 2,
         "taskcode": 2,
         "description": "Topology-based Task - Accessibility "
     },
     {
         "frequency": 12,
+        "highlevelcode": 1,
+        "lowlevelcode": 3,
         "taskcode": 3,
         "description": "Topology-based Task - Common connection "
     },
     {
         "frequency": 1,
+        "highlevelcode": 1,
+        "lowlevelcode": 4,
         "taskcode": 4,
         "description": "Topology-based Task - Connectivity - Find Shortest Path"
     },
     {
         "frequency": 18,
+        "highlevelcode": 1,
+        "lowlevelcode": 4,
         "taskcode": 5,
         "description": "Topology-based Task - Connectivity - Find Clusters"
     },
     {
         "frequency": 5,
+        "highlevelcode": 1,
+        "lowlevelcode": 4,
         "taskcode": 6,
         "description": "Topology-based Task - Connectivity - Find Connected Components "
     },
     {
         "frequency": 2,
+        "highlevelcode": 1,
+        "lowlevelcode": 4,
         "taskcode": 7,
         "description": "Topology-based Task - Connectivity - Find Bridges "
     },
     {
         "frequency": 5,
+        "highlevelcode": 1,
+        "lowlevelcode": 4,
         "taskcode": 8,
         "description": "Topology-based Task - Connectivity - Find Articulation Points"
     },
     {
         "frequency": 20,
+        "highlevelcode": 2,
+        "lowlevelcode": 5,
         "taskcode": 9,
         "description": "Attribute-based task - On the node "
     },
     {
         "frequency": 16,
+        "highlevelcode": 2,
+        "lowlevelcode": 6,
         "taskcode": 10,
         "description": "Attribute-based task - On the links "
     },
     {
         "frequency": 16,
+        "highlevelcode": 3,
+        "lowlevelcode": 7,
         "taskcode": 11,
         "description": "Browsing tasks - Follow path "
     },
     {
         "frequency": 6,
+        "highlevelcode": 3,
+        "lowlevelcode": 8,
         "taskcode": 12,
         "description": "Browsing tasks - Revisit "
     },
     {
         "frequency": 18,
+        "highlevelcode": 4,
+        "lowlevelcode": 9,
         "taskcode": 13,
         "description": "Overview tasks - Finding Outliers "
     },
     {
         "frequency": 24,
+        "highlevelcode": 4,
+        "lowlevelcode": 10,
         "taskcode": 14,
         "description": "Overview tasks - Finding Patterns "
     }
