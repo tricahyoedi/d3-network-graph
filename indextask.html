@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisation Tasks Frequency</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        .bar {
+            fill: steelblue;
+        }
+        .bar:hover {
+            fill: orange;
+        }
+        .axis-label {
+            font-size: 12px;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Frequency of Visualisation Tasks</h1>
+    <div id="chart"></div>
+    <div class="tooltip"></div>
+
+    <script>
+        // Set dimensions and margins
+        const margin = {top: 20, right: 30, bottom: 40, left: 350},
+              width = 960 - margin.left - margin.right,
+              height = 500 - margin.top - margin.bottom;
+
+        // Append svg object to the body
+        const svg = d3.select("#chart")
+          .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const tooltip = d3.select(".tooltip");
+
+        // Load the data
+        d3.json("datatask.json").then(data => {
+            
+            // Sort data by frequency descending
+            data.sort((a, b) => d3.descending(a.frequency, b.frequency));
+
+            // X axis
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.frequency)])
+                .range([0, width]);
+            
+            svg.append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                    .attr("transform", "translate(-10,0)rotate(-45)")
+                    .style("text-anchor", "end");
+
+            // Y axis
+            const y = d3.scaleBand()
+                .range([0, height])
+                .domain(data.map(d => d.description))
+                .padding(.1);
+            
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Bars
+            svg.selectAll("myRect")
+                .data(data)
+                .join("rect")
+                .attr("x", x(0) )
+                .attr("y", d => y(d.description))
+                .attr("width", d => x(d.frequency))
+                .attr("height", y.bandwidth())
+                .attr("class", "bar")
+                .on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+                    tooltip.html(`Frequency: ${d.frequency}`)
+                        .style("left", (event.pageX) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(d) {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+            
+            // Add label for X axis
+            svg.append("text")
+                .attr("text-anchor", "end")
+                .attr("x", width)
+                .attr("y", height + margin.bottom - 5)
+                .text("Frequency");
+
+        }).catch(error => {
+            console.error('Error loading the JSON data:', error);
+        });
+
+    </script>
+</body>
+</html>
