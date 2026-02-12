@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Financial Visual Analytics Literature Review</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700&display=swap" rel="stylesheet" />
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://unpkg.com/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
+    <style>
+        body { font-family: 'Open Sans', sans-serif; background: #f0f2f5; color: #333; margin: 0; display: flex; }
+        #controls { width: 320px; padding: 40px 25px; background: #fff; height: 100vh; position: sticky; top: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; }
+        #container { flex-grow: 1; padding: 30px; }
+        h1 { font-size: 1.5em; color: #1a2a6c; margin-bottom: 10px; }
+        .grid-item { width: 320px; background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: transform 0.2s; }
+        .grid-item:hover { transform: translateY(-5px); }
+        .grid-item h2 { font-size: 1.1em; margin-top: 0; color: #b21f1f; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }
+        .grid-item p { font-size: 0.9em; line-height: 1.5; color: #555; }
+        .label { font-weight: bold; color: #333; display: block; margin-top: 10px; font-size: 0.85em; text-transform: uppercase; }
+        .tag { display: inline-block; background: #e8f0fe; color: #1967d2; padding: 3px 8px; border-radius: 4px; font-size: 0.75em; margin: 2px 0; font-weight: 600; }
+        .filter-section { margin-top: 30px; }
+        .filter-btn { display: block; width: 100%; text-align: left; padding: 10px; margin: 5px 0; border: none; background: #f8f9fa; border-radius: 6px; cursor: pointer; font-size: 0.9em; transition: 0.2s; }
+        .filter-btn:hover { background: #e2e6ea; }
+        .filter-btn.active { background: #1a2a6c; color: white; }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h1>Literature Review</h1>
+        <p><em>Financial Network Visualisation and Visual Analytics</em></p>
+        <hr>
+        <div class="filter-section">
+            <h3>Evaluation Method</h3>
+            <div id="filters_eval">
+                <button class="filter-btn active" onclick="filterData('all', this)">All Papers</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="container" class="grid"></div>
+
+    <script>
+        let allData = [];
+        let msnry;
+
+        d3.json("datareview.json").then(data => {
+            allData = data;
+            
+            // Generate Filters
+            const evals = [...new Set(data.map(d => d.evaluation.split(',')[0].trim()))].sort();
+            const filterDiv = d3.select("#filters_eval");
+            evals.forEach(e => {
+                filterDiv.append("button")
+                    .attr("class", "filter-btn")
+                    .text(e)
+                    .on("click", function() { filterData(e, this); });
+            });
+
+            renderCards(data);
+        });
+
+        function renderCards(data) {
+            const container = d3.select("#container");
+            container.selectAll(".grid-item").remove();
+
+            const cards = container.selectAll(".grid-item")
+                .data(data)
+                .enter().append("div")
+                .attr("class", "grid-item")
+                .html(d => `
+                    <h2>${d.title}</h2>
+                    <span class="label">Problem</span>
+                    <p>${d.problem}</p>
+                    <span class="label">Domain</span>
+                    <span class="tag">${d.domain}</span>
+                    <span class="label">Visualizations</span>
+                    <p style="font-size:0.8em">${d.visualization}</p>
+                    <span class="label">Tech Stack</span>
+                    <code style="font-size:0.75em">${d.tech}</code>
+                `);
+
+            // Re-init Masonry
+            if (msnry) msnry.destroy();
+            msnry = new Masonry('.grid', {
+                itemSelector: '.grid-item',
+                columnWidth: 320,
+                gutter: 25,
+                fitWidth: true
+            });
+        }
+
+        function filterData(val, btn) {
+            d3.selectAll(".filter-btn").classed("active", false);
+            d3.select(btn).classed("active", true);
+
+            const filtered = val === 'all' ? allData : allData.filter(d => d.evaluation.includes(val));
+            renderCards(filtered);
+        }
+    </script>
+</body>
+</html>
