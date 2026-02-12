@@ -1,0 +1,326 @@
+[
+  {
+    "id": 1,
+    "title": "TaxThemis",
+    "problem": "Tax authorities face a significant \"tax gap\" due to tax evasion, specifically Related Party Transaction-based Tax Evasion (RPTTE).",
+    "domain": "Visual Analytics, Tax Network",
+    "visualization": "Bar charts, Node-link Diagrams, Heat Maps, Arc-diagram based glyphs",
+    "evaluation": "Case studies, Expert interviews",
+    "tech": "Python, Flask, JavaScript, Vue, D3"
+  },
+  {
+    "id": 2,
+    "title": "FraudAuditor",
+    "problem": "Collusive fraud in health insurance is difficult to detect because fraudulent medical visits are highly similar to normal visits.",
+    "domain": "Visual analytics, Health insurance fraud",
+    "visualization": "Bar charts, Node-link Diagrams, Radar Charts, Heat Maps, Sequence visualization",
+    "evaluation": "Case studies, Expert interviews",
+    "tech": "Louvain algorithm, Kernel PCA"
+  },
+  {
+    "id": 3,
+    "title": "Bitcoin Exchange Evolution",
+    "problem": "Cryptocurrency exchanges dominate Bitcoin circulation, yet existing tools lack capacity for multi-dimensional transaction patterns.",
+    "domain": "FinTech, Bitcoin market, Blockchain",
+    "visualization": "Massive Sequence View, Node-link Diagrams, Parallel Bars, Triangle Selector",
+    "evaluation": "Case studies, Expert interviews",
+    "tech": "MongoDB, Python 3"
+  },
+  {
+    "id": 4,
+    "title": "FinGraph",
+    "problem": "Investors and regulators struggle to detect systemic risks and anomalies in complex, multi-layered financial networks.",
+    "domain": "Financial Risk, Graph Analytics",
+    "visualization": "Hierarchical Graph View, Temporal Trends, Risk Heatmaps",
+    "evaluation": "User Study, Case Study",
+    "tech": "C++, OpenGL, D3.js"
+  },
+  {
+    "id": 5,
+    "title": "NFTracer",
+    "problem": "Stakeholders in the NFT market face high investment risks like rug pulls and irrational price volatility.",
+    "domain": "NFT Transaction, FinTech",
+    "visualization": "Parallel Coordinates, Scatter plots, Area charts",
+    "evaluation": "User Study, Case studies",
+    "tech": "Vue.js, D3.js, Python"
+  },
+  {
+    "id": 6,
+    "title": "EconMap",
+    "problem": "Visualizing global economic indicators across time and geography remains challenging for policymakers.",
+    "domain": "Macroeconomics, Global Trade",
+    "visualization": "Choropleth Maps, Cartograms, Interactive Timelines",
+    "evaluation": "Expert Review",
+    "tech": "D3.js, TopoJSON"
+  },
+  {
+    "id": 7,
+    "title": "BankSafe",
+    "problem": "Banks need to identify money laundering patterns in real-time across millions of daily transactions.",
+    "domain": "Anti-Money Laundering (AML)",
+    "visualization": "Flow Diagrams, Cluster Views, Transaction Timelines",
+    "evaluation": "Case Study",
+    "tech": "Java, Spark, GraphX"
+  },
+  {
+    "id": 8,
+    "title": "PortfolioVis",
+    "problem": "Portfolio managers lack tools to visualize the correlation between disparate asset classes during market shocks.",
+    "domain": "Asset Management, Investment",
+    "visualization": "Correlation Matrices, Sunburst Charts, Treemaps",
+    "evaluation": "User Study",
+    "tech": "React, Canvas API"
+  },
+  {
+    "id": 9,
+    "title": "CreditWatch",
+    "problem": "Traditional credit scoring lacks transparency, making it hard for lenders to justify loan rejections.",
+    "domain": "Credit Risk, Explainable AI",
+    "visualization": "SHAP Values, Force-directed Graphs, Decision Trees",
+    "evaluation": "Expert Interviews",
+    "tech": "Python, Scikit-learn, Dash"
+  },
+  {
+    "id": 10,
+    "title": "Guarantee Loan Risk",
+    "problem": "Enterprises back each other to obtain loans, creating 'guarantee circles' that hide systemic risks.",
+    "domain": "Risk Management, Banking",
+    "visualization": "Sankey diagrams, Treemaps, Heatmaps",
+    "evaluation": "Case studies, Expert reviews",
+    "tech": "XGBoost, gtrieScanner"
+  },
+  {
+    "id": 11,
+    "title": "MarketSonar",
+    "problem": "High-frequency traders need to detect market manipulation patterns like spoofing in milliseconds.",
+    "domain": "Trading, Market Integrity",
+    "visualization": "Order Book Heatmaps, Liquidity Plots",
+    "evaluation": "Technical Validation",
+    "tech": "KDB+, C#, WebGL"
+  },
+  {
+    "id": 12,
+    "title": "AuditFlow",
+    "problem": "Auditors struggle to verify corporate accounts when transactions involve hundreds of subsidiaries.",
+    "domain": "Corporate Auditing",
+    "visualization": "Consolidated Flowcharts, Anomaly Detection Glyphs",
+    "evaluation": "Expert Review",
+    "tech": "Excel VBA, JavaScript"
+  },
+  {
+    "id": 13,
+    "title": "DebtVis",
+    "problem": "Visualizing national debt levels and their impact on future generations is often oversimplified.",
+    "domain": "Public Finance",
+    "visualization": "Sankey, Stacked Area Charts",
+    "evaluation": "Public User Study",
+    "tech": "D3.js, Svelte"
+  },
+  {
+    "id": 14,
+    "title": "CryptoShield",
+    "problem": "DeFi protocols are vulnerable to flash loan attacks which are hard to simulate visually.",
+    "domain": "DeFi, Blockchain Security",
+    "visualization": "Transaction Graphs, State Transition Diagrams",
+    "evaluation": "Case Study",
+    "tech": "Solidity, Ethers.js"
+  },
+  {
+    "id": 15,
+    "title": "InsureView",
+    "problem": "Insurance adjusters need to identify claim fraud by looking at social relationships between claimants.",
+    "domain": "Insurance Fraud",
+    "visualization": "Social Network Analysis, Geospatial Maps",
+    "evaluation": "Case Study",
+    "tech": "ArcGIS, Python"
+  },
+  {
+    "id": 16,
+    "title": "StockCorrelation",
+    "problem": "Traditional stock charts show prices but not the underlying sector rotations and correlations.",
+    "domain": "Stock Market",
+    "visualization": "Dynamic Force Graphs, Sector Clouds",
+    "evaluation": "User Study",
+    "tech": "AlphaVantage API, D3"
+  },
+  {
+    "id": 17,
+    "title": "OptionEye",
+    "problem": "The Greeks in option trading are abstract and difficult for novice traders to grasp visually.",
+    "domain": "Options Trading",
+    "visualization": "3D Surface Plots, Profit/Loss Sliders",
+    "evaluation": "Expert Interview",
+    "tech": "Three.js, React"
+  },
+  {
+    "id": 18,
+    "title": "SupplyChainFin",
+    "problem": "Financial institutions lack visibility into the deep tiers of a supplier's creditworthiness.",
+    "domain": "Supply Chain Finance",
+    "visualization": "Multi-tier Tree Diagrams, Risk Propagation Maps",
+    "evaluation": "Case Study",
+    "tech": "Neo4j, JavaScript"
+  },
+  {
+    "id": 19,
+    "title": "RetailBankFlow",
+    "problem": "Analyzing customer churn in retail banking requires understanding complex multi-channel behaviors.",
+    "domain": "Retail Banking",
+    "visualization": "Sankey Flow, Path Analysis",
+    "evaluation": "Case Study",
+    "tech": "Tableau, SQL"
+  },
+  {
+    "id": 20,
+    "title": "ForexTrend",
+    "problem": "Identifying currency patterns across multiple timeframes simultaneously is mentally taxing.",
+    "domain": "Foreign Exchange",
+    "visualization": "Small Multiples, Horizon Charts",
+    "evaluation": "Technical Validation",
+    "tech": "Metatrader, Python"
+  },
+  {
+    "id": 21,
+    "title": "VentureGraph",
+    "problem": "VCs need to track startup founders' previous successes and co-investor networks.",
+    "domain": "Venture Capital",
+    "visualization": "Bipartite Graphs, Timeline of Funding",
+    "evaluation": "Expert Review",
+    "tech": "GraphQL, D3"
+  },
+  {
+    "id": 22,
+    "title": "MortgageMap",
+    "problem": "Predicting regional mortgage defaults requires combining demographic data with loan terms.",
+    "domain": "Real Estate Finance",
+    "visualization": "Hexagonal Binning, Map Overlays",
+    "evaluation": "Case Study",
+    "tech": "Python, Leaflet"
+  },
+  {
+    "id": 23,
+    "title": "PensionVis",
+    "problem": "Visualizing the long-term solvency of pension funds under different inflation scenarios.",
+    "domain": "Pension Management",
+    "visualization": "Monte Carlo Simulation Plots, Fan Charts",
+    "evaluation": "Expert Review",
+    "tech": "R, Shiny"
+  },
+  {
+    "id": 24,
+    "title": "ESGTracker",
+    "problem": "ESG scores are often inconsistent; investors need to see the raw metrics visually.",
+    "domain": "Sustainable Finance",
+    "visualization": "Radar Charts, Bullet Graphs",
+    "evaluation": "User Study",
+    "tech": "Vue, D3"
+  },
+  {
+    "id": 25,
+    "title": "CommodityFlow",
+    "problem": "Global commodity trading involves physical and financial flows that are rarely visualized together.",
+    "domain": "Commodities",
+    "visualization": "Globe Visualization, Flow Maps",
+    "evaluation": "Case Study",
+    "tech": "WebGL, Node.js"
+  },
+  {
+    "id": 26,
+    "title": "CentralBankDashboard",
+    "problem": "Central banks need a unified view of inflation, employment, and interest rates.",
+    "domain": "Monetary Policy",
+    "visualization": "Dashboard, Multi-axis Charts",
+    "evaluation": "Expert Review",
+    "tech": "D3.js, Python"
+  },
+  {
+    "id": 27,
+    "title": "MicroLoanMonitor",
+    "problem": "Tracking small-scale loan repayments in developing regions across fragmented data.",
+    "domain": "Microfinance",
+    "visualization": "Dot Plots, Mobile-friendly Bar Charts",
+    "evaluation": "Field Study",
+    "tech": "React Native, Firebase"
+  },
+  {
+    "id": 28,
+    "title": "RegTechVis",
+    "problem": "Compliance officers are overwhelmed by the volume of new financial regulations.",
+    "domain": "Regulatory Tech",
+    "visualization": "Text Networks, Hierarchy Trees",
+    "evaluation": "Expert Interviews",
+    "tech": "NLP, Python"
+  },
+  {
+    "id": 29,
+    "title": "WealthGraph",
+    "problem": "Private bankers need to visualize the wealth transfer between generations of a family.",
+    "domain": "Wealth Management",
+    "visualization": "Family Tree Graphs, Asset Allocation Pies",
+    "evaluation": "User Study",
+    "tech": "JavaScript, SVG"
+  },
+  {
+    "id": 30,
+    "title": "BondYieldCurve",
+    "problem": "Interpreting the inversion of the yield curve across different countries and currencies.",
+    "domain": "Fixed Income",
+    "visualization": "Animated Line Charts, Heatmaps",
+    "evaluation": "Case Study",
+    "tech": "Python, Matplotlib"
+  },
+  {
+    "id": 31,
+    "title": "AlgorithmicTradingVis",
+    "problem": "Visualizing why an automated trading algorithm made a specific series of loss-making trades.",
+    "domain": "Algorithmic Trading",
+    "visualization": "Event Timelines, State Space Plots",
+    "evaluation": "Expert Review",
+    "tech": "C++, Python"
+  },
+  {
+    "id": 32,
+    "title": "TaxHavenTracker",
+    "problem": "Tracking offshore shell companies across multiple jurisdictions is visually complex.",
+    "domain": "Tax Policy",
+    "visualization": "Chord Diagrams, Geographic Networks",
+    "evaluation": "Case Study",
+    "tech": "D3.js, GeoJSON"
+  },
+  {
+    "id": 33,
+    "title": "PandemicFinance",
+    "problem": "Visualizing the impact of COVID-19 stimulus packages on different economic sectors.",
+    "domain": "Economic Policy",
+    "visualization": "Difference Charts, Waterfall Diagrams",
+    "evaluation": "Public Review",
+    "tech": "Tableau"
+  },
+  {
+    "id": 34,
+    "title": "FinNewsVis",
+    "problem": "Correlating financial news sentiment with real-time stock price movements.",
+    "domain": "Sentiment Analysis",
+    "visualization": "Sentiment Clouds, Overlaid Price Lines",
+    "evaluation": "Technical Validation",
+    "tech": "BERT, Python, D3"
+  },
+  {
+    "id": 35,
+    "title": "ShadowBankingRisk",
+    "problem": "Measuring the risk in the non-bank financial sector (shadow banking) via visual summaries.",
+    "domain": "Systemic Risk",
+    "visualization": "Network Graphs, Treemaps",
+    "evaluation": "Case Study",
+    "tech": "R, Gephi"
+  },
+  {
+    "id": 36,
+    "title": "InterbankMarket",
+    "problem": "Large transaction networks hinder exploration of outliers like liquidity hoarding.",
+    "domain": "Interbank Markets",
+    "visualization": "Animated node-link, sliding time windows",
+    "evaluation": "Case studies",
+    "tech": "Gephi, FNA"
+  }
+]
